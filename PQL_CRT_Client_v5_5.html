@@ -985,6 +985,14 @@ function renderBanner() {
 // STREAK TRACKER (7 days x 4 weeks, driven by ship_dates + weekly_history)
 // ═══════════════════════════════════════════════════════
 
+// Local YYYY-MM-DD (avoids UTC timezone shift from toISOString)
+function localDateStr(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return y + '-' + m + '-' + dd;
+}
+
 // ISO week ID matching backend getWeekId (Thursday-based ISO 8601)
 function weekIdFromDate(d) {
   const dt = new Date(d); dt.setHours(0,0,0,0);
@@ -998,7 +1006,7 @@ function renderStreak() {
   if (!grid) return;
   grid.innerHTML = '';
 
-  // Current week exact ship dates
+  // Build a Set of ship_dates (YYYY-MM-DD strings from backend)
   const shippedSet = new Set((hudState.ship_dates || []).map(ds => ds.slice(0, 10)));
 
   // Build a map of week_id → ship_days count from weekly_history
@@ -1008,7 +1016,8 @@ function renderStreak() {
   });
 
   const today = new Date();
-  const todayStr = today.toISOString().slice(0, 10);
+  today.setHours(0,0,0,0);
+  const todayStr = localDateStr(today);
   const dayOfWeek = today.getDay();
   const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
   const currentMonday = new Date(today);
@@ -1027,30 +1036,23 @@ function renderStreak() {
     const weekMonday = new Date(currentMonday);
     weekMonday.setDate(currentMonday.getDate() - (week * 7));
     const isCurrentWeek = (week === 0);
-
-    // For past weeks, derive which weekdays were shipped from ship_days count
-    // The backend tracks ship_days per week; fill M→F up to that count
-    let pastWeekShippedDays = 0;
-    if (!isCurrentWeek) {
-      const wid = weekIdFromDate(weekMonday);
-      pastWeekShippedDays = historyMap[wid] || 0;
-    }
+    const wid = weekIdFromDate(weekMonday);
+    const weekShipCount = historyMap[wid] || 0;
 
     for (let day = 0; day < 7; day++) {
       const d = new Date(weekMonday);
       d.setDate(weekMonday.getDate() + day);
-      const dateStr = d.toISOString().slice(0, 10);
+      const dateStr = localDateStr(d);
 
       const cell = document.createElement('div');
       cell.className = 'streak-cell';
 
-      if (isCurrentWeek) {
-        // Current week: use exact ship_dates
-        if (shippedSet.has(dateStr)) cell.classList.add('shipped');
-      } else {
-        // Past weeks: fill weekday cells (Mon-Fri, day 0-4) up to ship_days count
-        if (day < 5 && day < pastWeekShippedDays) cell.classList.add('shipped');
-      }
+      // Check if this day had a shipment:
+      // 1. Exact date match from ship_dates (current week data from backend)
+      // 2. For any week with ship_days count, fill weekday cells (Mon-Fri) up to that count
+      const inShipDates = shippedSet.has(dateStr);
+      const filledByCount = day < 5 && day < weekShipCount;
+      if (inShipDates || filledByCount) cell.classList.add('shipped');
 
       if (dateStr === todayStr) cell.classList.add('today');
       cell.title = dateStr;
@@ -1061,6 +1063,7 @@ function renderStreak() {
 
 function updateStreakFromShipDays() {
   renderStreak();
+}
 }
 
 renderStreak();
