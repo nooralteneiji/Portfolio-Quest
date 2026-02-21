@@ -2014,6 +2014,7 @@ function renderResponse(cmd, data, isError, isAI) {
 
     html += `<div class="manage-toolbar">
         <button class="manage-save-btn" id="mgrSaveBtn" onclick="submitManageReorder()" disabled>SAVE ORDER</button>
+        <button class="manage-save-btn" onclick="sendPayload({cmd:'edit',action:'backfill_shipped'})" style="background:var(--cyan);border-color:var(--cyan);color:var(--bg)">BACKFILL DATES</button>
         <span class="manage-hint" id="mgrHint">Drag items to reorder, then save</span>
       </div>`;
     html += '</div>';
@@ -2087,6 +2088,52 @@ function renderResponse(cmd, data, isError, isAI) {
     addRichMessage('recv', cmd, html);
     setTimeout(() => sendPayload({ cmd: 'edit' }), 400);
     return;
+  }
+
+  // ═══ EDIT BACKFILL SHIPPED ═══
+  if (cmd === 'edit' && data.mode === 'backfill_select') {
+    window._backfillDates = {};
+    html += `<div class="section" style="border-color:var(--cyan)"><div class="section-title" style="color:var(--cyan)">BACKFILL SHIPPED DATES</div>
+      <div style="font-size:13px;color:var(--text-dim);margin-bottom:8px">Set the shipped date for each artifact, then click APPLY. Already-shipped artifacts show their recorded date.</div>`;
+    (data.epics||[]).forEach(e => {
+      html += `<div style="color:var(--phosphor-bright);text-shadow:var(--glow);font-size:13px;letter-spacing:1px;margin:10px 0 4px;padding:2px 4px;border-bottom:1px solid var(--border)">${escHtml(e.epic_id)} — ${escHtml(e.title)}</div>`;
+      (e.artifacts||[]).forEach(a => {
+        const isShipped = a.status === 'shipped';
+        const dimStyle = isShipped ? 'opacity:0.6;' : '';
+        html += `<div class="art-row" style="${dimStyle}display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+          <span class="art-status status-${a.status}">${a.status}</span>
+          <span class="art-id" style="font-size:12px">${escHtml(a.artifact_id)}</span>
+          <span class="art-title" style="font-size:13px;flex:1">${escHtml(a.title)}</span>
+          <span class="art-xp">${a.xp} XP</span>
+          <input type="date" class="backfill-date" data-aid="${a.artifact_id}" value="${a.shipped_date || ''}"
+            style="background:var(--bg);color:var(--text);border:1px solid var(--border);padding:2px 4px;font-family:var(--font);font-size:12px"
+            onchange="window._backfillDates['${a.artifact_id}']=this.value" />
+        </div>`;
+      });
+    });
+    html += `<div style="margin-top:12px;display:flex;gap:8px;align-items:center">
+      <button class="pb-submit-btn" onclick="submitBackfill()">APPLY BACKFILL</button>
+      <span style="font-size:12px;color:var(--text-dim)" id="backfillHint">Set dates and click apply</span>
+    </div></div>`;
+    addRichMessage('recv', cmd, html); return;
+  }
+
+  if (cmd === 'edit' && data.mode === 'backfill_applied') {
+    if (data.xp_earned > 0) html += xpBar(data.xp_earned, 'BACKFILL XP');
+    if (data.epic_bonuses?.length > 0) {
+      html += `<div class="section" style="border-color:var(--amber)"><div class="section-title" style="color:var(--amber);text-shadow:0 0 8px var(--amber-dim)">★ EPIC COMPLETE! ★</div>`;
+      data.epic_bonuses.forEach(b => {
+        html += `<div class="art-row"><span class="badge badge-yellow">+${b.xp} XP</span><span class="art-title" style="color:var(--amber)">${escHtml(b.epic_title || b.epic_id)}</span></div>`;
+      });
+      html += '</div>';
+    }
+    html += `<div class="section"><div class="section-title">BACKFILL APPLIED <span class="badge badge-green">${data.applied} OK</span>${data.skipped ? ` <span class="badge badge-yellow">${data.skipped} SKIPPED</span>` : ''}</div>`;
+    (data.results || []).forEach(r => {
+      const badge = r.status === 'ok' ? 'badge-green' : 'badge-yellow';
+      html += `<div class="art-row"><span class="badge ${badge}">${r.status.toUpperCase()}</span><span class="art-id">${escHtml(r.artifact_id)}</span><span class="art-title">${escHtml(r.title || '')}</span>${r.shipped_date ? `<span style="font-size:12px;color:var(--text-dim)">${escHtml(r.shipped_date)}</span>` : ''}${r.reason ? `<span style="font-size:12px;color:var(--amber)">${escHtml(r.reason)}</span>` : ''}</div>`;
+    });
+    html += `</div>`;
+    addRichMessage('recv', cmd, html); return;
   }
 
   // ═══ SWAP RENDERER ═══
@@ -2328,6 +2375,14 @@ function submitShips() {
   if (selectedShips.size===0) { addMessage('error','wrapup','SELECT AT LEAST ONE ARTIFACT'); return; }
   sendPayload({cmd:'wrapup',shipped:Array.from(selectedShips)});
   selectedShips.clear();
+}
+function submitBackfill() {
+  const entries = [];
+  document.querySelectorAll('.backfill-date').forEach(input => {
+    if (input.value) entries.push({ artifact_id: input.dataset.aid, shipped_date: input.value });
+  });
+  if (entries.length === 0) { addMessage('error','edit','SET AT LEAST ONE DATE'); return; }
+  sendPayload({ cmd: 'edit', action: 'backfill_shipped', entries });
 }
 function confirmPending(idx) {
   try {
