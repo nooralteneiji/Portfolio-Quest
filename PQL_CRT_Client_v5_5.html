@@ -1341,9 +1341,22 @@ function renderResponse(cmd, data, isError, isAI) {
           <div class="confirm-reason">${escHtml(cl.reasoning)}</div>
           <div style="margin:6px 0;padding:6px;border:1px solid var(--border)">`;
         (cl.items||[]).forEach(it => { html += `<div class="art-row"><span class="art-type">${it.suggested_type}</span><span class="art-title">${escHtml(it.suggested_title)}</span><span class="art-xp">${it.suggested_xp} XP</span></div>`; });
-        html += `</div><div class="confirm-actions">
-            <button class="confirm-btn" onclick='confirmCluster(${ci})'>ACCEPT</button>
-            <button class="confirm-btn alt" onclick="showClusterRemap(${ci})">REMAP</button>
+        html += `</div>`;
+        // Show suggested artifacts for new epics (auto-suggest roadmap)
+        if (cl.suggested_artifacts && cl.suggested_artifacts.length > 0) {
+          html += `<div style="margin:6px 0;padding:6px;border:1px dashed var(--amber);background:rgba(255,165,0,0.02)">
+            <div style="font-size:11px;color:var(--amber);letter-spacing:1px;margin-bottom:4px">SUGGESTED ROADMAP (${cl.suggested_artifacts.length} artifacts)</div>`;
+          cl.suggested_artifacts.forEach(sa => {
+            html += `<div class="art-row" style="opacity:0.7"><span class="art-type">${sa.suggested_type}</span><span class="art-title" style="font-style:italic">${escHtml(sa.suggested_title)}</span><span class="art-xp">${sa.suggested_xp} XP</span><span style="font-size:11px;color:var(--text-dim);margin-left:6px">${escHtml(sa.rationale||'')}</span></div>`;
+          });
+          html += `</div>`;
+        }
+        html += `<div class="confirm-actions">
+            <button class="confirm-btn" onclick='confirmCluster(${ci})'>ACCEPT</button>`;
+        if (cl.accept_with_suggestions_payload) {
+          html += `<button class="confirm-btn" style="background:rgba(255,165,0,0.15);border-color:var(--amber);color:var(--amber)" onclick='confirmClusterWithSuggestions(${ci})'>ACCEPT + ROADMAP</button>`;
+        }
+        html += `<button class="confirm-btn alt" onclick="showClusterRemap(${ci})">REMAP</button>
             <button class="confirm-btn reject" onclick="breakCluster(${ci})">BREAK</button>
           </div>
           <div class="map-alt" id="cluster-remap-${ci}">
@@ -1906,6 +1919,7 @@ function renderResponse(cmd, data, isError, isAI) {
           </div>
           <div class="mr-actions">
             <span style="font-size:11px;color:var(--text-dim)">${(e.artifacts||[]).length} arts</span>
+            <button class="delete-btn" onclick="confirmDeleteEpic('${e.epic_id}','${safeTitle}',${(e.artifacts||[]).length})" style="margin-left:6px" title="Delete epic">DEL</button>
           </div>
         </div>`;
 
@@ -1926,6 +1940,8 @@ function renderResponse(cmd, data, isError, isAI) {
             </div>
             <div class="mr-actions">
               <button class="rename-btn" onclick="promptEditArtifact('${a.artifact_id}','${safeTitleA}')">REN</button>
+              ${isShipped ? '' : `<button class="rename-btn" onclick="promptResizeArtifact('${a.artifact_id}','${safeTitleA}','${a.type}')" title="Resize type/XP">SIZE</button>`}
+              ${isShipped ? '' : (a.status === 'parked' ? `<button class="rename-btn" style="color:var(--phosphor)" onclick="execUnparkArtifact('${a.artifact_id}')" title="Unpark">UNPARK</button>` : `<button class="rename-btn" style="color:var(--amber)" onclick="execParkArtifact('${a.artifact_id}')" title="Park artifact">PARK</button>`)}
               ${isShipped ? '' : `<button class="delete-btn" onclick="confirmDeleteArtifact('${a.artifact_id}','${safeTitleA}','${e.epic_id}')">DEL</button>`}
             </div>
           </div>`;
@@ -1943,6 +1959,42 @@ function renderResponse(cmd, data, isError, isAI) {
   }
 
   // ═══ EDIT MUTATION RENDERERS ═══
+  if (cmd === 'edit' && data.mode === 'deleted_epic') {
+    html += `<div class="section" style="border-color:var(--red)"><div class="section-title" style="color:var(--red)">EPIC DELETED</div>
+      <div class="art-row"><span class="art-id">${escHtml(data.epic_id||'')}</span><span class="art-title" style="text-decoration:line-through;color:var(--red-dim)">${escHtml(data.title||'')}</span><span style="font-size:12px;color:var(--text-dim)">${data.artifacts_removed||0} artifacts removed</span></div></div>`;
+    addRichMessage('recv', cmd, html);
+    setTimeout(() => sendPayload({ cmd: 'edit' }), 400);
+    return;
+  }
+
+  if (cmd === 'edit' && data.mode === 'resized_artifact') {
+    html += `<div class="section" style="border-color:var(--cyan)"><div class="section-title" style="color:var(--cyan)">ARTIFACT RESIZED</div>
+      <div class="art-row"><span class="art-id">${escHtml(data.artifact_id||'')}</span><span class="art-title">${escHtml(data.title||'')}</span>
+        <span class="art-type" style="text-decoration:line-through;color:var(--red-dim)">${data.old_type} ${data.old_xp}XP</span>
+        <span style="color:var(--phosphor-bright)">&rarr;</span>
+        <span class="art-type">${data.new_type}</span><span class="art-xp">${data.new_xp} XP</span>
+      </div></div>`;
+    addRichMessage('recv', cmd, html);
+    setTimeout(() => sendPayload({ cmd: 'edit' }), 400);
+    return;
+  }
+
+  if (cmd === 'edit' && data.mode === 'parked_artifact') {
+    html += `<div class="section" style="border-color:var(--amber)"><div class="section-title" style="color:var(--amber)">ARTIFACT PARKED</div>
+      <div class="art-row"><span class="art-id">${escHtml(data.artifact_id||'')}</span><span class="art-title">${escHtml(data.title||'')}</span><span style="font-size:12px;color:var(--text-dim)">was ${escHtml(data.old_status||'')}</span></div></div>`;
+    addRichMessage('recv', cmd, html);
+    setTimeout(() => sendPayload({ cmd: 'edit' }), 400);
+    return;
+  }
+
+  if (cmd === 'edit' && data.mode === 'unparked_artifact') {
+    html += `<div class="section" style="border-color:var(--phosphor)"><div class="section-title" style="color:var(--phosphor)">ARTIFACT UNPARKED</div>
+      <div class="art-row"><span class="art-id">${escHtml(data.artifact_id||'')}</span><span class="art-title">${escHtml(data.title||'')}</span><span style="font-size:12px;color:var(--text-dim)">now open</span></div></div>`;
+    addRichMessage('recv', cmd, html);
+    setTimeout(() => sendPayload({ cmd: 'edit' }), 400);
+    return;
+  }
+
   if (cmd === 'edit' && data.mode === 'deleted_artifact') {
     html += `<div class="section" style="border-color:var(--red)"><div class="section-title" style="color:var(--red)">🗑️ ARTIFACT DELETED</div>
       <div class="art-row"><span class="art-id">${escHtml(data.artifact_id||'')}</span><span class="art-title" style="text-decoration:line-through;color:var(--red-dim)">${escHtml(data.title||'')}</span><span style="font-size:12px;color:var(--text-dim)">from ${escHtml(data.epic_id||'')}</span></div></div>`;
@@ -2549,6 +2601,74 @@ function execDeleteArtifact(artifactId) {
   document.querySelector('.confirm-delete-overlay')?.remove();
   sendPayload({ cmd: 'edit', action: 'delete_artifact', artifact_id: artifactId });
 }
+
+function confirmDeleteEpic(epicId, title, artCount) {
+  const overlay = document.createElement('div');
+  overlay.className = 'confirm-delete-overlay';
+  overlay.innerHTML = `
+    <div class="confirm-delete-box">
+      <h3>[ DELETE EPIC ]</h3>
+      <p>Remove <strong style="color:var(--phosphor-bright)">${escHtml(epicId)}</strong> — ${escHtml(title)}<br>and all <strong>${artCount}</strong> artifacts?<br><br><span style="color:var(--red);font-size:12px">This cannot be undone. Epics with shipped artifacts cannot be deleted.</span></p>
+      <div class="modal-actions">
+        <button class="modal-btn secondary" onclick="this.closest('.confirm-delete-overlay').remove()">ESC</button>
+        <button class="modal-btn primary" style="background:var(--red);border-color:var(--red)" onclick="execDeleteEpic('${epicId}')">DELETE EPIC</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+}
+
+function execDeleteEpic(epicId) {
+  document.querySelector('.confirm-delete-overlay')?.remove();
+  sendPayload({ cmd: 'edit', action: 'delete_epic', epic_id: epicId });
+}
+
+function promptResizeArtifact(artifactId, title, currentType) {
+  const xpMap = { slice: 2, small: 3, medium: 8, large: 12 };
+  const types = ['slice', 'small', 'medium', 'large'];
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  let btns = types.map(t => {
+    const sel = t === currentType ? 'selected' : '';
+    return `<button class="type-chip ${sel}" onclick="execResizeArtifact('${artifactId}','${t}')" style="cursor:pointer;padding:6px 14px;margin:4px">${t.toUpperCase()} ${xpMap[t]} XP</button>`;
+  }).join('');
+  overlay.innerHTML = `
+    <div class="modal">
+      <h3>[ RESIZE: ${escHtml(artifactId)} ]</h3>
+      <p style="color:var(--text-dim);font-size:13px">${escHtml(title)}<br>Current: <strong>${currentType}</strong> (${xpMap[currentType] || '?'} XP)</p>
+      <div style="display:flex;gap:4px;flex-wrap:wrap;justify-content:center;margin:12px 0">${btns}</div>
+      <div class="modal-actions">
+        <button class="modal-btn secondary" onclick="this.closest('.modal-overlay').remove()">ESC</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+}
+
+function execResizeArtifact(artifactId, newType) {
+  document.querySelector('.modal-overlay')?.remove();
+  sendPayload({ cmd: 'edit', action: 'resize_artifact', artifact_id: artifactId, new_type: newType });
+}
+
+function execParkArtifact(artifactId) {
+  sendPayload({ cmd: 'edit', action: 'park_artifact', artifact_id: artifactId });
+}
+
+function execUnparkArtifact(artifactId) {
+  sendPayload({ cmd: 'edit', action: 'unpark_artifact', artifact_id: artifactId });
+}
+
+function confirmClusterWithSuggestions(ci) {
+  try {
+    const cluster = (window._syncClusters || [])[ci];
+    if (!cluster || !cluster.accept_with_suggestions_payload) {
+      addMessage('error', 'sync', 'CLUSTER DATA NOT FOUND — index ' + ci + '. Try re-running /sync.');
+      return;
+    }
+    sendPayload(cluster.accept_with_suggestions_payload);
+    const c = document.getElementById('cluster-' + ci);
+    if (c) { c.style.opacity = '0.3'; c.style.pointerEvents = 'none'; }
+  } catch(e) { addMessage('error', 'sync', 'CLUSTER FAILED: ' + e.message); }
+}
+
 
 function confirmDeleteOps(id, text) {
   const overlay = document.createElement('div');
