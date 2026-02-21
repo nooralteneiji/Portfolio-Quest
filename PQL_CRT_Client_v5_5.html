@@ -956,7 +956,7 @@ let sending = false;
 const hudState = {
   week_id: '—', xp_this_week: 0, xp_total: 0, baseline: 0,
   min_threshold: 0, ahead_threshold: 0, pace: 'no_baseline',
-  ship_days: 0, ship_target: 3, ship_dates: [],
+  ship_days: 0, ship_target: 3, ship_dates: [], streak_ship_dates: [],
   quests: [], open_count: 0, committed_count: 0
 };
 
@@ -975,6 +975,7 @@ function updateBanner(data) {
     hudState.ship_days = p.ship_days ?? hudState.ship_days;
     hudState.ship_target = p.ship_day_target ?? 3;
     hudState.ship_dates = p.ship_dates || hudState.ship_dates;
+    hudState.streak_ship_dates = p.streak_ship_dates || hudState.streak_ship_dates;
     changed = true;
   }
 
@@ -1071,15 +1072,11 @@ function renderStreak() {
   if (!grid) return;
   grid.innerHTML = '';
 
-  // Local YYYY-MM-DD formatter (avoids UTC shift from toISOString)
-  const toLocalDateStr = d =>
-    `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-
-  // Build a Set of date strings where an artifact was shipped
-  const shippedSet = new Set((hudState.ship_dates || []).map(ds => ds.slice(0, 10)));
+  // Build a Set of date strings where an artifact was shipped (last 28 days)
+  const shippedSet = new Set((hudState.streak_ship_dates || []).map(ds => ds.slice(0, 10)));
 
   const today = new Date();
-  const todayStr = toLocalDateStr(today);
+  const todayStr = today.toISOString().slice(0, 10);
   // Find the Monday of the current week
   const dayOfWeek = today.getDay(); // 0=Sun
   const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
@@ -1100,7 +1097,7 @@ function renderStreak() {
     for (let day = 0; day < 7; day++) {
       const d = new Date(currentMonday);
       d.setDate(currentMonday.getDate() - (week * 7) + day);
-      const dateStr = toLocalDateStr(d);
+      const dateStr = d.toISOString().slice(0, 10);
 
       const cell = document.createElement('div');
       cell.className = 'streak-cell';
