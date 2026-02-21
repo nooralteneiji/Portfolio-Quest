@@ -261,6 +261,65 @@ body{
 .type-chip:hover{border-color:var(--phosphor);color:var(--text)}
 .type-chip.selected{background:var(--phosphor);color:var(--bg);border-color:var(--phosphor)}
 
+/* ═══ LIBRARY FOLDERS ═══ */
+.lib-stack{display:flex;flex-direction:column;gap:2px}
+.lib-folder{position:relative;margin-bottom:6px}
+.lib-tab{
+  position:relative;display:inline-block;
+  padding:4px 14px;margin-left:12px;
+  border:1px solid var(--phosphor);border-bottom:none;
+  color:var(--phosphor-bright);font-size:14px;
+  letter-spacing:0.5px;cursor:pointer;
+  background:transparent;
+  transition:all .2s;
+}
+.lib-tab:hover{background:rgba(51,255,0,0.08);text-shadow:var(--glow)}
+.lib-tab.active{background:rgba(51,255,0,0.06);text-shadow:var(--glow)}
+.lib-body{
+  border:1px solid var(--phosphor);
+  padding:10px 12px;
+  background:rgba(51,255,0,0.02);
+  transition:all .2s;
+}
+.lib-folder:hover .lib-body{border-color:var(--phosphor-bright);box-shadow:0 0 8px rgba(51,255,0,0.1)}
+.lib-bar-track{
+  flex:1;height:8px;background:#0a0f0a;
+  border:1px solid rgba(51,255,0,0.15);overflow:hidden;
+}
+.lib-bar-fill{
+  height:100%;background:var(--phosphor);
+  box-shadow:0 0 6px var(--phosphor-glow);
+  transition:width .6s ease;
+}
+.lib-bar-fill.complete{background:var(--phosphor-bright);box-shadow:0 0 10px var(--phosphor)}
+.lib-stats{
+  display:flex;align-items:center;gap:10px;
+  font-size:13px;color:var(--text-dim);
+}
+.lib-stats .lib-pct{color:var(--phosphor);font-size:15px;min-width:36px;text-align:right}
+.lib-stats .lib-xp{color:var(--amber);font-size:13px}
+.lib-stats .lib-count{color:var(--text-dim);font-size:12px;letter-spacing:0.5px}
+.lib-detail{
+  margin-top:6px;padding-top:6px;
+  border-top:1px solid rgba(51,255,0,0.1);
+  display:none;
+}
+.lib-detail.open{display:block}
+.lib-milestone{margin:6px 0}
+.lib-milestone-title{
+  font-size:12px;letter-spacing:1.5px;text-transform:uppercase;
+  color:var(--text-dim);margin-bottom:4px;
+}
+.lib-summary{
+  display:flex;gap:12px;align-items:center;
+  margin-bottom:10px;padding-bottom:8px;
+  border-bottom:1px solid rgba(51,255,0,0.1);
+  font-size:14px;
+}
+.lib-summary .lib-sum-val{color:var(--phosphor-bright);font-size:18px;text-shadow:var(--glow)}
+.lib-summary .lib-sum-label{color:var(--text-dim);font-size:11px;letter-spacing:1px;text-transform:uppercase}
+.lib-sum-card{text-align:center;padding:4px 12px;border:1px solid var(--border);background:rgba(51,255,0,0.02)}
+
 /* ═══ XP BAR ═══ */
 .xp-bar{
   display:flex;align-items:center;gap:8px;padding:4px 0;margin:4px 0;
@@ -2084,6 +2143,65 @@ function renderResponse(cmd, data, isError, isAI) {
       html += `<div style="margin:6px 0;color:var(--text-dim)">PARKED: ${data.parked_artifacts.map(a => escHtml(a.title)).join(', ')}</div>`;
     }
     html += `<div style="font-size:13px;color:var(--text-dim);margin-top:6px">${escHtml(data.message||'')}</div></div>`;
+    addRichMessage('recv', cmd, html); return;
+  }
+
+  // ═══ LIBRARY: stacked folder-tab view ═══
+  if (cmd === 'library') {
+    const folders = data.folders || [];
+
+    // Detail mode: expanded single epic
+    if (data.mode === 'detail' && data.folder) {
+      const f = data.folder;
+      html += `<div style="color:var(--phosphor-bright);text-shadow:var(--glow);font-size:16px;margin-bottom:2px">\u{1F4C2} ${escHtml(f.title)}</div>`;
+      html += `<div style="font-size:13px;color:var(--text-dim);margin-bottom:8px">${escHtml(f.epic_id)} \u00b7 ${f.shipped}/${f.total} artifacts \u00b7 ${f.earned_xp}/${f.total_xp} XP</div>`;
+      html += xpBar(f.earned_xp, f.progress_pct + '%', f.total_xp);
+      (f.milestones || []).forEach(m => {
+        html += `<div class="lib-milestone"><div class="lib-milestone-title">${escHtml(m.title)} (${m.shipped}/${m.total})</div>`;
+        (m.artifacts || []).forEach(a => {
+          const icon = a.status === 'shipped' ? '\u2705' : '\u2b1c';
+          html += `<div class="art-row"><span style="font-size:14px">${icon}</span><span class="art-id">${escHtml(a.artifact_id)}</span><span class="art-title">${escHtml(a.title)}</span><span class="art-xp">${a.xp} XP</span><span class="art-type">${escHtml(a.type)}</span><span class="art-status status-${a.status}">${a.status.toUpperCase()}</span></div>`;
+        });
+        html += `</div>`;
+      });
+      addRichMessage('recv', cmd, html); return;
+    }
+
+    // Overview: stacked folders
+    html += `<div style="color:var(--phosphor-bright);text-shadow:var(--glow);font-size:16px;margin-bottom:2px">\u{1F4C2} EPIC LIBRARY</div>`;
+    html += `<div class="lib-summary">`;
+    html += `<div class="lib-sum-card"><div class="lib-sum-val">${data.active_epics || 0}</div><div class="lib-sum-label">ACTIVE</div></div>`;
+    html += `<div class="lib-sum-card"><div class="lib-sum-val">${data.total_epics || 0}</div><div class="lib-sum-label">TOTAL</div></div>`;
+    html += `<div class="lib-sum-card"><div class="lib-sum-val" style="color:var(--amber)">${data.total_earned_xp || 0}</div><div class="lib-sum-label">XP EARNED</div></div>`;
+    html += `<div class="lib-sum-card"><div class="lib-sum-val" style="color:var(--text-dim)">${data.total_possible_xp || 0}</div><div class="lib-sum-label">XP POSSIBLE</div></div>`;
+    html += `</div>`;
+    html += `<div class="lib-stack">`;
+    folders.forEach((f, fi) => {
+      const filled = f.total > 0 ? Math.round((f.shipped / f.total) * 100) : 0;
+      const fillClass = filled >= 100 ? ' complete' : '';
+      const statusBadge = f.status !== 'active' ? ` <span class="badge badge-yellow">${f.status.toUpperCase()}</span>` : '';
+      html += `<div class="lib-folder" data-epic="${escHtml(f.epic_id)}">`;
+      html += `<div class="lib-tab" onclick="this.parentElement.querySelector('.lib-detail').classList.toggle('open');this.classList.toggle('active')">${escHtml(f.title)}${statusBadge}</div>`;
+      html += `<div class="lib-body">`;
+      html += `<div class="lib-stats">`;
+      html += `<span class="lib-pct">${filled}%</span>`;
+      html += `<div class="lib-bar-track"><div class="lib-bar-fill${fillClass}" style="width:${filled}%"></div></div>`;
+      html += `<span class="lib-count">${f.shipped}/${f.total}</span>`;
+      html += `<span class="lib-xp">${f.earned_xp} XP</span>`;
+      html += `</div>`;
+      // Expandable detail (milestones + artifacts)
+      html += `<div class="lib-detail">`;
+      (f.milestones || []).forEach(m => {
+        html += `<div class="lib-milestone"><div class="lib-milestone-title">${escHtml(m.title)} (${m.shipped}/${m.total})</div>`;
+        (m.artifacts || []).forEach(a => {
+          const icon = a.status === 'shipped' ? '\u2705' : '\u2b1c';
+          html += `<div class="art-row"><span style="font-size:13px">${icon}</span><span class="art-id" style="font-size:12px">${escHtml(a.artifact_id)}</span><span class="art-title" style="font-size:13px">${escHtml(a.title)}</span><span class="art-xp">${a.xp} XP</span><span class="art-status status-${a.status}" style="font-size:10px">${a.status.toUpperCase()}</span></div>`;
+        });
+        html += `</div>`;
+      });
+      html += `</div></div></div>`;
+    });
+    html += `</div>`;
     addRichMessage('recv', cmd, html); return;
   }
 
