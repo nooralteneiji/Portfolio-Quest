@@ -874,6 +874,7 @@ const hudState = {
   week_id: '—', xp_this_week: 0, xp_total: 0, baseline: 0,
   min_threshold: 0, ahead_threshold: 0, pace: 'no_baseline',
   ship_days: 0, ship_target: 3, ship_dates: [],
+  weekly_history: [],
   quests: [], open_count: 0, committed_count: 0
 };
 
@@ -892,6 +893,7 @@ function updateBanner(data) {
     hudState.ship_days = p.ship_days ?? hudState.ship_days;
     hudState.ship_target = p.ship_day_target ?? 3;
     hudState.ship_dates = p.ship_dates || hudState.ship_dates;
+    if (p.weekly_history) hudState.weekly_history = p.weekly_history;
     changed = true;
   }
 
@@ -980,28 +982,40 @@ function renderBanner() {
 }
 
 // ═══════════════════════════════════════════════════════
-// STREAK TRACKER (7 days x 4 weeks, driven by ship_dates)
+// STREAK TRACKER (7 days x 4 weeks, driven by ship_dates + weekly_history)
 // ═══════════════════════════════════════════════════════
+
+// ISO week ID matching backend getWeekId (Thursday-based ISO 8601)
+function weekIdFromDate(d) {
+  const dt = new Date(d); dt.setHours(0,0,0,0);
+  const thu = new Date(dt); thu.setDate(dt.getDate() + 3 - ((dt.getDay()+6)%7));
+  const ys = new Date(thu.getFullYear(),0,1);
+  return thu.getFullYear() + '-W' + String(Math.ceil((((thu-ys)/86400000)+1)/7)).padStart(2,'0');
+}
 
 function renderStreak() {
   const grid = document.getElementById('streakGrid');
   if (!grid) return;
   grid.innerHTML = '';
 
-  // Build a Set of date strings where an artifact was shipped
+  // Current week exact ship dates
   const shippedSet = new Set((hudState.ship_dates || []).map(ds => ds.slice(0, 10)));
+
+  // Build a map of week_id → ship_days count from weekly_history
+  const historyMap = {};
+  (hudState.weekly_history || []).forEach(w => {
+    historyMap[w.week] = w.ship_days || 0;
+  });
 
   const today = new Date();
   const todayStr = today.toISOString().slice(0, 10);
-  // Find the Monday of the current week
-  const dayOfWeek = today.getDay(); // 0=Sun
+  const dayOfWeek = today.getDay();
   const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
   const currentMonday = new Date(today);
   currentMonday.setDate(today.getDate() + mondayOffset);
 
-  // Day header row (M T W T F S S)
-  const dayLabels = ['M','T','W','T','F','S','S'];
-  dayLabels.forEach(lbl => {
+  // Day header row
+  ['M','T','W','T','F','S','S'].forEach(lbl => {
     const hdr = document.createElement('div');
     hdr.className = 'streak-day-hdr';
     hdr.textContent = lbl;
@@ -1010,14 +1024,34 @@ function renderStreak() {
 
   // Build 4 weeks: 3 weeks ago → this week (top to bottom)
   for (let week = 3; week >= 0; week--) {
+    const weekMonday = new Date(currentMonday);
+    weekMonday.setDate(currentMonday.getDate() - (week * 7));
+    const isCurrentWeek = (week === 0);
+
+    // For past weeks, derive which weekdays were shipped from ship_days count
+    // The backend tracks ship_days per week; fill M→F up to that count
+    let pastWeekShippedDays = 0;
+    if (!isCurrentWeek) {
+      const wid = weekIdFromDate(weekMonday);
+      pastWeekShippedDays = historyMap[wid] || 0;
+    }
+
     for (let day = 0; day < 7; day++) {
-      const d = new Date(currentMonday);
-      d.setDate(currentMonday.getDate() - (week * 7) + day);
+      const d = new Date(weekMonday);
+      d.setDate(weekMonday.getDate() + day);
       const dateStr = d.toISOString().slice(0, 10);
 
       const cell = document.createElement('div');
       cell.className = 'streak-cell';
-      if (shippedSet.has(dateStr)) cell.classList.add('shipped');
+
+      if (isCurrentWeek) {
+        // Current week: use exact ship_dates
+        if (shippedSet.has(dateStr)) cell.classList.add('shipped');
+      } else {
+        // Past weeks: fill weekday cells (Mon-Fri, day 0-4) up to ship_days count
+        if (day < 5 && day < pastWeekShippedDays) cell.classList.add('shipped');
+      }
+
       if (dateStr === todayStr) cell.classList.add('today');
       cell.title = dateStr;
       grid.appendChild(cell);
@@ -1025,7 +1059,6 @@ function renderStreak() {
   }
 }
 
-// Called from updateBanner when ship_dates change
 function updateStreakFromShipDays() {
   renderStreak();
 }
