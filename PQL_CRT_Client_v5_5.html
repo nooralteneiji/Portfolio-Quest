@@ -1508,11 +1508,11 @@ function renderResponse(cmd, data, isError, isAI) {
       const depth = (e.path.match(/\//g) || []).length;
       const pad = depth * 16;
       if (e.type === 'dir') {
-        html += `<div class="fb-entry fb-dir" style="padding-left:${8 + pad}px" onclick="sendPayload({cmd:'files',action:'list',path:'${escHtml(e.path)}'})">
+        html += `<div class="fb-entry fb-dir" style="padding-left:${8 + pad}px" onclick="sendPayload({cmd:'files',action:'list',sub_action:'list',path:'${escHtml(e.path)}'})">
           <span class="fb-icon">📁</span><span class="fb-name">${escHtml(e.name)}/</span></div>`;
       } else {
         const sizeStr = e.size > 1024 ? (e.size / 1024).toFixed(1) + ' KB' : e.size + ' B';
-        html += `<div class="fb-entry" style="padding-left:${8 + pad}px" onclick="sendPayload({cmd:'files',action:'read',path:'${escHtml(e.path)}'})">
+        html += `<div class="fb-entry" style="padding-left:${8 + pad}px" onclick="sendPayload({cmd:'files',action:'read',sub_action:'read',path:'${escHtml(e.path)}'})">
           <span class="fb-icon">${e.name.endsWith('.json') ? '📋' : e.name.endsWith('.md') ? '📝' : '📄'}</span>
           <span class="fb-name">${escHtml(e.name)}</span>
           <span class="fb-size">${sizeStr}</span></div>`;
@@ -1527,18 +1527,18 @@ function renderResponse(cmd, data, isError, isAI) {
     const pathParts = (data.path || '').split('/');
     // Breadcrumbs
     html += `<div class="section"><div class="fb-crumb">`;
-    html += `<span onclick="sendPayload({cmd:'files',action:'list'})">📁 root</span>`;
+    html += `<span onclick="sendPayload({cmd:'files',action:'list',sub_action:'list'})">📁 root</span>`;
     let crumbPath = '';
     for (let i = 0; i < pathParts.length - 1; i++) {
       crumbPath += (i > 0 ? '/' : '') + pathParts[i];
-      html += ` / <span onclick="sendPayload({cmd:'files',action:'list'})">${escHtml(pathParts[i])}</span>`;
+      html += ` / <span onclick="sendPayload({cmd:'files',action:'list',sub_action:'list'})">${escHtml(pathParts[i])}</span>`;
     }
     html += ` / <span class="active">${escHtml(pathParts[pathParts.length - 1])}</span></div>`;
     // Toolbar
     html += `<div class="fb-toolbar">
       <span class="fb-path">${escHtml(data.path || '')}</span>
       <span style="font-size:11px;color:var(--text-dim)">${data.size || 0} bytes</span>
-      <button class="confirm-btn" style="padding:2px 8px;font-size:11px" onclick="sendPayload({cmd:'files',action:'list'})">← BACK</button>
+      <button class="confirm-btn" style="padding:2px 8px;font-size:11px" onclick="sendPayload({cmd:'files',action:'list',sub_action:'list'})">← BACK</button>
       <button class="confirm-btn" style="padding:2px 8px;font-size:11px;border-color:var(--cyan);color:var(--cyan)" onclick="openFileEditor('${escHtml(data.path)}')">EDIT</button>
     </div>`;
     // Content viewer with line numbers
@@ -1562,8 +1562,8 @@ function renderResponse(cmd, data, isError, isAI) {
     html += `<div class="section" style="border-color:var(--phosphor)"><div class="section-title" style="color:var(--phosphor)">✅ FILE SAVED</div>
       <div style="font-size:13px;color:var(--text)">${escHtml(data.path || '')} — ${data.size || 0} bytes</div>
       <div style="font-size:12px;color:var(--text-dim);margin-top:2px">${escHtml(data.message || '')}</div>
-      <button class="confirm-btn" style="margin-top:6px;padding:2px 8px;font-size:11px" onclick="sendPayload({cmd:'files',action:'read',path:'${escHtml(data.path)}'})">VIEW FILE</button>
-      <button class="confirm-btn" style="margin-top:6px;padding:2px 8px;font-size:11px" onclick="sendPayload({cmd:'files',action:'list'})">← BROWSE</button>
+      <button class="confirm-btn" style="margin-top:6px;padding:2px 8px;font-size:11px" onclick="sendPayload({cmd:'files',action:'read',sub_action:'read',path:'${escHtml(data.path)}'})">VIEW FILE</button>
+      <button class="confirm-btn" style="margin-top:6px;padding:2px 8px;font-size:11px" onclick="sendPayload({cmd:'files',action:'list',sub_action:'list'})">← BROWSE</button>
     </div>`;
     addRichMessage('recv', cmd, html); return;
   }
@@ -1572,7 +1572,7 @@ function renderResponse(cmd, data, isError, isAI) {
     html += `<div class="section" style="border-color:var(--red)"><div class="section-title" style="color:var(--red)">🗑️ FILE DELETED</div>
       <div style="font-size:13px;color:var(--text)">${escHtml(data.path || '')}</div>
       <div style="font-size:12px;color:var(--text-dim);margin-top:2px">${escHtml(data.message || '')}</div>
-      <button class="confirm-btn" style="margin-top:6px;padding:2px 8px;font-size:11px" onclick="sendPayload({cmd:'files',action:'list'})">← BROWSE</button>
+      <button class="confirm-btn" style="margin-top:6px;padding:2px 8px;font-size:11px" onclick="sendPayload({cmd:'files',action:'list',sub_action:'list'})">← BROWSE</button>
     </div>`;
     addRichMessage('recv', cmd, html); return;
   }
@@ -2415,13 +2415,13 @@ function saveFileEdit(path) {
   if (path.endsWith('.json')) {
     try {
       const parsed = JSON.parse(content);
-      sendPayload({ cmd: 'files', action: 'write', path, content_json: parsed });
+      sendPayload({ cmd: 'files', action: 'write', sub_action: 'write', path, content_json: parsed });
     } catch (e) {
       addMessage('error', 'files', 'INVALID JSON: ' + e.message);
       return;
     }
   } else {
-    sendPayload({ cmd: 'files', action: 'write', path, content });
+    sendPayload({ cmd: 'files', action: 'write', sub_action: 'write', path, content });
   }
   document.getElementById('fileEditorWrap').style.display = 'none';
 }
@@ -2555,7 +2555,7 @@ function submitManageReorder() {
     });
   }
   // Send everything in ONE request (avoids mutex/race issues)
-  sendPayload({ cmd: 'edit', action: 'reorder_all', epic_order: epicOrder, artifact_orders: artOrders });
+  sendPayload({ cmd: 'edit', action: 'reorder_all', sub_action: 'reorder_all', epic_order: epicOrder, artifact_orders: artOrders });
   window._manageDirty = false;
   const btn = document.getElementById('mgrSaveBtn');
   if (btn) { btn.disabled = true; btn.style.boxShadow = ''; }
@@ -2567,7 +2567,7 @@ function submitOpsReorder() {
   if (!section) return;
   const rows = section.querySelectorAll('.manage-row[data-ops-id]');
   const ids = [...rows].map(r => r.dataset.opsId);
-  sendPayload({ cmd: 'ops', action: 'reorder', ids });
+  sendPayload({ cmd: 'ops', action: 'reorder', sub_action: 'reorder', ids });
   window._opsDirty = false;
 }
 
@@ -2576,7 +2576,7 @@ function submitMastReorder() {
   if (!section) return;
   const rows = section.querySelectorAll('.manage-row[data-mast-id]');
   const ids = [...rows].map(r => r.dataset.mastId);
-  sendPayload({ cmd: 'ops', action: 'reorder_mastery', ids });
+  sendPayload({ cmd: 'ops', action: 'reorder_mastery', sub_action: 'reorder_mastery', ids });
   window._mastDirty = false;
 }
 
@@ -2599,7 +2599,7 @@ function confirmDeleteArtifact(artifactId, title, epicId) {
 
 function execDeleteArtifact(artifactId) {
   document.querySelector('.confirm-delete-overlay')?.remove();
-  sendPayload({ cmd: 'edit', action: 'delete_artifact', artifact_id: artifactId });
+  sendPayload({ cmd: 'edit', action: 'delete_artifact', sub_action: 'delete_artifact', artifact_id: artifactId });
 }
 
 function confirmDeleteEpic(epicId, title, artCount) {
@@ -2619,7 +2619,7 @@ function confirmDeleteEpic(epicId, title, artCount) {
 
 function execDeleteEpic(epicId) {
   document.querySelector('.confirm-delete-overlay')?.remove();
-  sendPayload({ cmd: 'edit', action: 'delete_epic', epic_id: epicId });
+  sendPayload({ cmd: 'edit', action: 'delete_epic', sub_action: 'delete_epic', epic_id: epicId });
 }
 
 function promptResizeArtifact(artifactId, title, currentType) {
@@ -2645,15 +2645,15 @@ function promptResizeArtifact(artifactId, title, currentType) {
 
 function execResizeArtifact(artifactId, newType) {
   document.querySelector('.modal-overlay')?.remove();
-  sendPayload({ cmd: 'edit', action: 'resize_artifact', artifact_id: artifactId, new_type: newType });
+  sendPayload({ cmd: 'edit', action: 'resize_artifact', sub_action: 'resize_artifact', artifact_id: artifactId, new_type: newType });
 }
 
 function execParkArtifact(artifactId) {
-  sendPayload({ cmd: 'edit', action: 'park_artifact', artifact_id: artifactId });
+  sendPayload({ cmd: 'edit', action: 'park_artifact', sub_action: 'park_artifact', artifact_id: artifactId });
 }
 
 function execUnparkArtifact(artifactId) {
-  sendPayload({ cmd: 'edit', action: 'unpark_artifact', artifact_id: artifactId });
+  sendPayload({ cmd: 'edit', action: 'unpark_artifact', sub_action: 'unpark_artifact', artifact_id: artifactId });
 }
 
 function confirmClusterWithSuggestions(ci) {
@@ -2688,7 +2688,7 @@ function confirmDeleteOps(id, text) {
 
 function execDeleteOps(id) {
   document.querySelector('.confirm-delete-overlay')?.remove();
-  sendPayload({ cmd: 'ops', action: 'delete', id });
+  sendPayload({ cmd: 'ops', action: 'delete', sub_action: 'delete', id });
 }
 
 function confirmDeleteMastery(id, text) {
@@ -2709,7 +2709,7 @@ function confirmDeleteMastery(id, text) {
 
 function execDeleteMastery(id) {
   document.querySelector('.confirm-delete-overlay')?.remove();
-  sendPayload({ cmd: 'ops', action: 'delete_mastery', id });
+  sendPayload({ cmd: 'ops', action: 'delete_mastery', sub_action: 'delete_mastery', id });
 }
 
 // EDIT ACTIONS
@@ -2822,13 +2822,13 @@ function executeSwap() {
 function markOpsDone(id) {
   const row = document.getElementById('ops-' + id);
   if (row) { row.style.opacity = '0.4'; row.style.textDecoration = 'line-through'; }
-  sendPayload({ cmd: 'ops', action: 'done', ids: [id] });
+  sendPayload({ cmd: 'ops', action: 'done', sub_action: 'done', ids: [id] });
 }
 
 function markMasteryDone(id) {
   const row = document.getElementById('mast-' + id);
   if (row) { row.style.opacity = '0.4'; row.style.textDecoration = 'line-through'; }
-  sendPayload({ cmd: 'ops', action: 'done_mastery', ids: [id] });
+  sendPayload({ cmd: 'ops', action: 'done_mastery', sub_action: 'done_mastery', ids: [id] });
 }
 
 function promptAddOps() {
@@ -2853,7 +2853,7 @@ function submitAddOps() {
   const val = document.getElementById('addOpsInput')?.value?.trim();
   if (!val) return;
   document.querySelector('.modal-overlay')?.remove();
-  sendPayload({ cmd: 'ops', action: 'add', text: val });
+  sendPayload({ cmd: 'ops', action: 'add', sub_action: 'add', text: val });
 }
 
 function promptAddMastery() {
@@ -2878,7 +2878,7 @@ function submitAddMastery() {
   const val = document.getElementById('addMastInput')?.value?.trim();
   if (!val) return;
   document.querySelector('.modal-overlay')?.remove();
-  sendPayload({ cmd: 'ops', action: 'add_mastery', text: val });
+  sendPayload({ cmd: 'ops', action: 'add_mastery', sub_action: 'add_mastery', text: val });
 }
 
 // ═══════════════════════════════════════════════════════
@@ -2927,7 +2927,7 @@ function submitSetPing(opsId) {
   const pingDate = document.getElementById('pingDateInput')?.value?.trim() || '';
   document.querySelector('.modal-overlay')?.remove();
   if (!pingDate) { addMessage('error', 'ops', 'Ping date is required.'); return; }
-  sendPayload({ cmd: 'ops', action: 'set_ping', id: opsId, waiting_on: waitingOn, ping_date: pingDate });
+  sendPayload({ cmd: 'ops', action: 'set_ping', sub_action: 'set_ping', id: opsId, waiting_on: waitingOn, ping_date: pingDate });
 }
 
 // ═══════════════════════════════════════════════════════
@@ -2941,7 +2941,7 @@ async function checkPingsOnLoad() {
     const res = await fetch(webhookUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ cmd: 'ops', action: 'pings' })
+      body: JSON.stringify({ cmd: 'ops', action: 'pings', sub_action: 'pings' })
     });
     let data = await res.json();
     if (Array.isArray(data)) data = data[0] || {};
