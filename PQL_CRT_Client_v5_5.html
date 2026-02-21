@@ -831,6 +831,9 @@ body{
         <button class="sk-btn" onclick="sendCmd('ops')"><span class="fk">F10</span><span class="fk-name">OPS</span></button>
         <button class="sk-btn" onclick="sendCmd('files')"><span class="fk">F11</span><span class="fk-name">FILE</span></button>
 
+        <div class="sk-label">LIB</div>
+        <button class="sk-btn" onclick="sendCmd('library')"><span class="fk">F12</span><span class="fk-name">LIB</span></button>
+
         <div style="flex:1"></div>
         <button class="sk-btn" onclick="sendRawPayload()"><span class="fk">^^</span><span class="fk-name">RAW</span></button>
         <button class="sk-btn" onclick="clearFeed()"><span class="fk">F0</span><span class="fk-name">CLR</span></button>
@@ -1112,7 +1115,7 @@ function handleKey(e) {
 
 document.addEventListener('keydown', e => {
   if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT') return;
-  const map = { F3: 'start', F4: 'sync', F5: 'wrapup', F6: 'week', F7: 'status', F8: 'swap', F9: 'edit', F10: 'ops', F11: 'files', F1: 'init', F2: 'debug' };
+  const map = { F3: 'start', F4: 'sync', F5: 'wrapup', F6: 'week', F7: 'status', F8: 'swap', F9: 'edit', F10: 'ops', F11: 'files', F12: 'library', F1: 'init', F2: 'debug' };
   if (map[e.key]) { e.preventDefault(); sendCmd(map[e.key]); }
 });
 
