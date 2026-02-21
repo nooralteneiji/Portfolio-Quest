@@ -1071,11 +1071,15 @@ function renderStreak() {
   if (!grid) return;
   grid.innerHTML = '';
 
+  // Local YYYY-MM-DD formatter (avoids UTC shift from toISOString)
+  const toLocalDateStr = d =>
+    `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+
   // Build a Set of date strings where an artifact was shipped
   const shippedSet = new Set((hudState.ship_dates || []).map(ds => ds.slice(0, 10)));
 
   const today = new Date();
-  const todayStr = today.toISOString().slice(0, 10);
+  const todayStr = toLocalDateStr(today);
   // Find the Monday of the current week
   const dayOfWeek = today.getDay(); // 0=Sun
   const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
@@ -1096,7 +1100,7 @@ function renderStreak() {
     for (let day = 0; day < 7; day++) {
       const d = new Date(currentMonday);
       d.setDate(currentMonday.getDate() - (week * 7) + day);
-      const dateStr = d.toISOString().slice(0, 10);
+      const dateStr = toLocalDateStr(d);
 
       const cell = document.createElement('div');
       cell.className = 'streak-cell';
