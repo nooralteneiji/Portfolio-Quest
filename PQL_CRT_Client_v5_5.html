@@ -1,0 +1,2920 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PQL — Terminal</title>
+<link href="https://fonts.googleapis.com/css2?family=VT323&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --phosphor:#33ff00;--phosphor-dim:#33ff0060;--phosphor-glow:#33ff0025;
+  --phosphor-bright:#66ff33;
+  --amber:#ffb000;--amber-dim:#ffb00050;
+  --red:#ff3333;--red-dim:#ff333340;
+  --cyan:#00ffcc;--cyan-dim:#00ffcc30;
+  --bg:#0a0a0a;--bg-screen:#050805;--bg-bezel:#1a1a1a;
+  --border:#33ff0030;--border-hi:#33ff0060;
+  --text:var(--phosphor);--text-dim:#33ff0080;--text-bright:var(--phosphor-bright);
+  --scanline:rgba(0,0,0,0.15);
+  --font:'VT323', 'Share Tech Mono', 'Courier New', monospace;
+  --glow:0 0 4px var(--phosphor-dim), 0 0 8px var(--phosphor-glow);
+  --glow-bright:0 0 6px var(--phosphor-dim), 0 0 12px var(--phosphor-glow), 0 0 20px var(--phosphor-glow);
+}
+html{font-size:16px}
+body{
+  background:#000;font-family:var(--font);color:var(--text);
+  min-height:100vh;display:flex;align-items:center;justify-content:center;
+  padding:20px;overflow:hidden;
+}
+
+/* ═══ CRT MONITOR HOUSING ═══ */
+.monitor{
+  width:100%;max-width:1100px;height:calc(100vh - 40px);
+  background:var(--bg-bezel);
+  border-radius:24px;
+  padding:20px;
+  box-shadow:
+    0 0 0 2px #333,
+    0 0 0 4px #111,
+    0 8px 32px rgba(0,0,0,0.8),
+    inset 0 1px 0 rgba(255,255,255,0.05);
+  display:flex;flex-direction:column;
+  position:relative;
+}
+.monitor::before{
+  content:'';position:absolute;top:6px;left:50%;transform:translateX(-50%);
+  width:40%;height:3px;border-radius:2px;
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,0.04),transparent);
+}
+
+/* ═══ MONITOR TOP BAR ═══ */
+.monitor-bar{
+  display:flex;align-items:center;padding:0 8px 12px;gap:12px;
+  border-bottom:1px solid #2a2a2a;margin-bottom:12px;
+}
+.monitor-brand{
+  font-size:11px;letter-spacing:4px;text-transform:uppercase;
+  color:#555;font-family:'Share Tech Mono',monospace;
+}
+.monitor-model{font-size:10px;color:#333;letter-spacing:2px;margin-left:auto;font-family:'Share Tech Mono',monospace}
+.power-led{
+  width:8px;height:8px;border-radius:50%;
+  background:var(--phosphor);
+  box-shadow:0 0 6px var(--phosphor), 0 0 12px var(--phosphor-glow);
+  transition:all .3s;
+}
+.power-led.off{background:#331100;box-shadow:none}
+
+/* ═══ SCREEN (the CRT glass) ═══ */
+.screen{
+  flex:1;overflow:hidden;position:relative;
+  background:var(--bg-screen);
+  border-radius:12px;
+  border:2px solid #222;
+  display:flex;flex-direction:column;
+  box-shadow:
+    inset 0 0 60px rgba(0,0,0,0.6),
+    inset 0 0 120px rgba(0,0,0,0.3),
+    0 0 4px rgba(51,255,0,0.05);
+}
+
+/* Scanlines overlay */
+.screen::before{
+  content:'';position:absolute;inset:0;z-index:10;pointer-events:none;
+  background:repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    var(--scanline) 2px,
+    var(--scanline) 4px
+  );
+  border-radius:12px;
+}
+/* Vignette + subtle curvature feel */
+.screen::after{
+  content:'';position:absolute;inset:0;z-index:11;pointer-events:none;
+  background:radial-gradient(ellipse at center, transparent 60%, rgba(0,0,0,0.7) 100%);
+  border-radius:12px;
+}
+/* Flicker */
+@keyframes flicker{
+  0%{opacity:1}
+  5%{opacity:0.98}
+  10%{opacity:1}
+  15%{opacity:0.97}
+  20%{opacity:1}
+  80%{opacity:1}
+  85%{opacity:0.98}
+  90%{opacity:1}
+  95%{opacity:0.99}
+  100%{opacity:1}
+}
+.screen-inner{
+  position:relative;z-index:5;
+  display:flex;flex:1;min-height:0;
+  animation:flicker 4s infinite;
+  padding:2px;
+}
+
+/* ═══ SIDEBAR (function keys) ═══ */
+.sidebar{
+  width:140px;border-right:1px solid var(--border);
+  padding:12px 8px;display:flex;flex-direction:column;gap:4px;
+  overflow-y:auto;flex-shrink:0;
+}
+.sidebar::-webkit-scrollbar{width:4px}
+.sidebar::-webkit-scrollbar-thumb{background:var(--border)}
+.sk-label{
+  font-size:11px;color:var(--text-dim);letter-spacing:2px;
+  padding:6px 4px 2px;text-transform:uppercase;
+}
+.sk-btn{
+  width:100%;padding:6px 8px;border:1px solid var(--border);
+  background:transparent;color:var(--text);cursor:pointer;
+  font-family:var(--font);font-size:15px;text-align:left;
+  display:flex;align-items:center;gap:6px;
+  transition:all .1s;position:relative;
+}
+.sk-btn:hover{
+  background:var(--phosphor-glow);border-color:var(--phosphor);
+  text-shadow:var(--glow);
+}
+.sk-btn:active{background:var(--phosphor-dim);color:var(--bg)}
+.sk-btn.active{border-color:var(--phosphor);background:var(--phosphor-glow);text-shadow:var(--glow)}
+.sk-btn .fk{
+  font-size:11px;color:var(--text-dim);min-width:22px;
+}
+.sk-btn .fk-name{flex:1;font-size:14px}
+
+/* ═══ MAIN TERMINAL AREA ═══ */
+.terminal{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0}
+
+/* Feed / scrollback buffer */
+.feed{
+  flex:1;overflow-y:auto;padding:12px 16px;
+  font-size:15px;line-height:1.6;
+}
+.feed::-webkit-scrollbar{width:6px}
+.feed::-webkit-scrollbar-track{background:transparent}
+.feed::-webkit-scrollbar-thumb{background:var(--border);border-radius:0}
+
+/* Messages */
+.msg{margin-bottom:12px;animation:typeIn .15s ease}
+@keyframes typeIn{from{opacity:0}to{opacity:1}}
+.msg-prompt{color:var(--text-dim);margin-bottom:2px;font-size:13px;display:flex;align-items:center;gap:6px}
+.msg-prompt .cmd-tag{
+  color:var(--phosphor-bright);text-shadow:var(--glow);font-weight:normal;
+}
+.msg-prompt .time-tag{color:#33ff0040;margin-left:auto;font-size:12px}
+.msg-prompt .dir-in{color:var(--amber)}
+.msg-prompt .dir-out{color:var(--cyan)}
+.msg-body{padding:2px 0 2px 20px;color:var(--text)}
+.msg-body pre{
+  background:rgba(51,255,0,0.03);border:1px solid var(--border);
+  padding:8px;overflow-x:auto;font-size:14px;line-height:1.4;
+  margin:4px 0;white-space:pre-wrap;word-break:break-word;
+  font-family:var(--font);color:var(--text);
+}
+.msg-body.error{color:var(--red);text-shadow:0 0 4px var(--red-dim)}
+.msg-body.ai-out{color:var(--amber);text-shadow:0 0 4px var(--amber-dim)}
+
+/* ═══ SECTIONS (inside messages) ═══ */
+.section{
+  margin:8px 0;padding:8px;
+  border:1px solid var(--border);
+  background:rgba(51,255,0,0.02);
+}
+.section-title{
+  font-size:15px;color:var(--phosphor-bright);text-shadow:var(--glow);
+  margin-bottom:6px;display:flex;align-items:center;gap:6px;
+}
+.badge{
+  font-size:12px;padding:0 6px;border:1px solid;
+  display:inline-block;
+}
+.badge-green{border-color:var(--phosphor);color:var(--phosphor)}
+.badge-yellow{border-color:var(--amber);color:var(--amber)}
+.badge-red{border-color:var(--red);color:var(--red)}
+.badge-accent{border-color:var(--cyan);color:var(--cyan)}
+.badge-cyan{border-color:var(--cyan);color:var(--cyan)}
+
+.art-row{
+  display:flex;align-items:center;gap:8px;padding:3px 4px;
+  font-size:14px;border-bottom:1px solid #33ff0010;
+}
+.art-row:last-child{border-bottom:none}
+.art-row:hover{background:var(--phosphor-glow)}
+.art-row .art-id{color:var(--text-dim);min-width:90px;font-size:13px}
+.art-row .art-title{flex:1;color:var(--text)}
+.art-row .art-xp{color:var(--amber);font-size:14px}
+.art-row .art-type{color:var(--text-dim);font-size:12px;text-transform:uppercase;letter-spacing:1px}
+.art-row .art-status{font-size:11px;padding:0 4px;border:1px solid;letter-spacing:1px}
+.status-open{border-color:var(--cyan);color:var(--cyan)}
+.status-committed{border-color:var(--phosphor);color:var(--phosphor)}
+.status-stretch{border-color:var(--amber);color:var(--amber)}
+.status-shipped{border-color:var(--phosphor-bright);color:var(--phosphor-bright);text-shadow:var(--glow)}
+.status-parked{border-color:#33ff0030;color:#33ff0050}
+
+/* ═══ CONFIRM CARDS ═══ */
+.confirm-card{
+  margin:6px 0;padding:8px;
+  border:1px dashed var(--amber);
+  background:rgba(255,176,0,0.03);
+}
+.confirm-card .confirm-text{font-size:15px;color:var(--text);margin-bottom:4px}
+.confirm-card .confirm-reason{font-size:13px;color:var(--text-dim);margin-bottom:6px}
+.confirm-actions{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px}
+.confirm-btn{
+  padding:4px 10px;border:1px solid var(--phosphor);
+  background:transparent;color:var(--phosphor);cursor:pointer;
+  font-family:var(--font);font-size:14px;
+  transition:all .1s;
+}
+.confirm-btn:hover{background:var(--phosphor);color:var(--bg);text-shadow:none}
+.confirm-btn.reject{border-color:var(--red);color:var(--red)}
+.confirm-btn.reject:hover{background:var(--red);color:var(--bg)}
+.confirm-btn.alt{border-color:var(--cyan);color:var(--cyan)}
+.confirm-btn.alt:hover{background:var(--cyan);color:var(--bg)}
+
+/* ═══ MAPPING PANELS ═══ */
+.map-alt{margin-top:6px;padding:8px;border:1px solid var(--border);display:none;background:rgba(51,255,0,0.02)}
+.map-alt.visible{display:block}
+.cluster-items-list{margin:8px 0;padding:8px;background:rgba(51,255,0,0.02);border:1px solid var(--border)}
+.map-alt-label{font-size:12px;color:var(--text-dim);letter-spacing:2px;text-transform:uppercase;margin:8px 0 4px}
+.map-alt-label:first-child{margin-top:0}
+.map-alt-row{display:flex;gap:6px;align-items:center;margin-bottom:4px;flex-wrap:wrap}
+.map-alt-row select,.map-alt-row input{
+  background:var(--bg-screen);color:var(--text);border:1px solid var(--border);
+  padding:4px 6px;font-size:14px;font-family:var(--font);
+}
+.map-alt-row select{flex:1;min-width:0;cursor:pointer;appearance:none;-webkit-appearance:none;padding-right:20px}
+.map-alt-row select:focus,.map-alt-row input:focus{outline:none;border-color:var(--phosphor);box-shadow:var(--glow)}
+.map-alt-row input{flex:1;min-width:80px}
+.map-alt-type-row{display:flex;gap:3px;margin:4px 0}
+.type-chip{
+  padding:2px 8px;font-size:13px;
+  border:1px solid var(--border);cursor:pointer;
+  font-family:var(--font);background:transparent;color:var(--text-dim);
+  transition:all .1s;
+}
+.type-chip:hover{border-color:var(--phosphor);color:var(--text)}
+.type-chip.selected{background:var(--phosphor);color:var(--bg);border-color:var(--phosphor)}
+
+/* ═══ XP BAR ═══ */
+.xp-bar{
+  display:flex;align-items:center;gap:8px;padding:4px 0;margin:4px 0;
+}
+.xp-bar .xp-label{font-size:14px;color:var(--amber)}
+.xp-bar .xp-track{flex:1;height:4px;background:#1a1a0a;border:1px solid var(--amber-dim);overflow:hidden}
+.xp-bar .xp-fill{height:100%;background:var(--amber);box-shadow:0 0 6px var(--amber-dim);transition:width .5s}
+.xp-bar .xp-num{font-size:14px;color:var(--amber)}
+
+/* ═══ PACE WIDGET ═══ */
+.pace-panel{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0}
+.pace-card{
+  flex:1;min-width:100px;padding:6px 8px;
+  border:1px solid var(--border);text-align:center;
+  background:rgba(51,255,0,0.02);
+}
+.pace-card .pc-value{font-size:22px;margin-bottom:0}
+.pace-card .pc-label{font-size:11px;color:var(--text-dim);letter-spacing:1px;text-transform:uppercase}
+.pace-status{
+  display:inline-block;padding:2px 10px;font-size:14px;
+  border:1px solid;letter-spacing:1px;
+}
+.pace-ahead{border-color:var(--phosphor);color:var(--phosphor);text-shadow:var(--glow)}
+.pace-on_track{border-color:var(--cyan);color:var(--cyan)}
+.pace-lagging{border-color:var(--red);color:var(--red);text-shadow:0 0 4px var(--red-dim)}
+.pace-no_baseline{border-color:#33ff0040;color:#33ff0050}
+.ship-day-dots{display:flex;gap:3px;justify-content:center;margin-top:4px}
+.ship-day-dot{
+  width:16px;height:16px;border:1px solid var(--border);
+  display:flex;align-items:center;justify-content:center;
+  font-size:11px;color:var(--text-dim);
+}
+.ship-day-dot.filled{background:var(--phosphor);color:var(--bg);border-color:var(--phosphor);text-shadow:none}
+.pace-history{display:flex;align-items:flex-end;gap:2px;height:32px;margin-top:4px;justify-content:center}
+.pace-history-bar{
+  width:12px;min-height:2px;background:var(--phosphor-dim);
+  position:relative;
+}
+.pace-history-bar.current{background:var(--phosphor);box-shadow:0 0 4px var(--phosphor-glow)}
+
+/* ═══ PLAN BUILDER ═══ */
+.plan-builder{padding:2px 0}
+.plan-builder .pb-label{
+  font-size:12px;color:var(--text-dim);letter-spacing:2px;
+  text-transform:uppercase;margin:10px 0 4px;
+}
+.plan-builder .pb-label:first-child{margin-top:0}
+.pb-card{
+  display:flex;align-items:center;gap:6px;padding:4px 6px;
+  border:1px solid var(--border);margin-bottom:2px;
+  background:transparent;transition:all .1s;
+}
+.pb-card:hover{border-color:var(--border-hi)}
+.pb-card .pb-info{flex:1;display:flex;align-items:center;gap:6px;min-width:0}
+.pb-card .pb-info .art-title{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pb-radio-group{display:flex;gap:2px;flex-shrink:0}
+.pb-radio{
+  padding:2px 8px;font-size:12px;letter-spacing:.5px;
+  border:1px solid var(--border);cursor:pointer;
+  font-family:var(--font);text-transform:uppercase;
+  background:transparent;color:var(--text-dim);transition:all .1s;
+}
+.pb-radio:hover{border-color:var(--phosphor);color:var(--text)}
+.pb-radio.sel-committed{background:var(--phosphor);color:var(--bg);border-color:var(--phosphor)}
+.pb-radio.sel-stretch{background:var(--amber);color:var(--bg);border-color:var(--amber)}
+.pb-radio.sel-parked{background:#333;color:var(--text-dim);border-color:#555}
+.pb-quest-row{
+  display:flex;align-items:center;gap:6px;padding:6px;
+  border:1px solid var(--border);margin-bottom:4px;
+}
+.pb-quest-row .quest-badge{color:var(--cyan);font-size:15px;min-width:24px}
+.pb-select{
+  background:var(--bg-screen);color:var(--text);border:1px solid var(--border);
+  padding:4px 6px;font-size:14px;font-family:var(--font);cursor:pointer;flex:1;min-width:0;
+  appearance:none;-webkit-appearance:none;
+}
+.pb-select:focus{outline:none;border-color:var(--phosphor)}
+.pb-select option{background:var(--bg-screen);color:var(--text)}
+.pb-submit-bar{display:flex;align-items:center;gap:10px;margin-top:8px;padding-top:8px;border-top:1px solid var(--border)}
+.pb-submit-btn{
+  padding:6px 16px;background:var(--phosphor);color:var(--bg);border:1px solid var(--phosphor);
+  cursor:pointer;font-family:var(--font);font-size:15px;
+  text-shadow:none;transition:all .1s;
+}
+.pb-submit-btn:hover{box-shadow:var(--glow-bright);filter:brightness(1.1)}
+.pb-submit-btn:active{filter:brightness(0.8)}
+.pb-hint{font-size:13px;color:var(--text-dim)}
+
+/* ═══ INPUT PROMPT ═══ */
+.prompt-area{
+  border-top:1px solid var(--border);padding:8px 16px;
+  display:flex;align-items:flex-end;gap:8px;
+}
+.prompt-prefix{
+  color:var(--phosphor-bright);text-shadow:var(--glow);
+  font-size:15px;padding-bottom:4px;white-space:nowrap;
+  animation:blink 1s step-end infinite;
+}
+@keyframes blink{50%{opacity:0}}
+.prompt-area textarea{
+  flex:1;background:transparent;color:var(--text);border:none;
+  font-family:var(--font);font-size:15px;resize:none;
+  line-height:1.5;min-height:24px;max-height:100px;
+  caret-color:var(--phosphor);
+}
+.prompt-area textarea:focus{outline:none}
+.prompt-area textarea::placeholder{color:#33ff0030}
+.prompt-area textarea::selection{background:var(--phosphor);color:var(--bg)}
+.send-btn{
+  padding:4px 14px;background:transparent;color:var(--phosphor);
+  border:1px solid var(--phosphor);cursor:pointer;
+  font-family:var(--font);font-size:14px;transition:all .1s;
+}
+.send-btn:hover{background:var(--phosphor);color:var(--bg);text-shadow:none}
+.send-btn:disabled{opacity:.2;cursor:not-allowed}
+
+/* ═══ LOADING ═══ */
+.loading-line{color:var(--text-dim);font-size:14px;padding:4px 0 4px 20px}
+.loading-line::after{
+  content:'█';animation:cursorBlink .6s step-end infinite;
+}
+@keyframes cursorBlink{50%{opacity:0}}
+
+/* ═══ ENDPOINT MODAL ═══ */
+.modal-overlay{
+  position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:200;
+  display:flex;align-items:center;justify-content:center;
+}
+.modal{
+  background:var(--bg-bezel);border:2px solid var(--phosphor);
+  padding:20px;width:90%;max-width:500px;box-shadow:var(--glow-bright);
+}
+.modal h3{color:var(--phosphor-bright);text-shadow:var(--glow);margin-bottom:12px;font-size:16px;font-weight:normal}
+.modal input{
+  width:100%;background:var(--bg-screen);color:var(--text);border:1px solid var(--border);
+  padding:6px 10px;font-family:var(--font);font-size:14px;margin-bottom:10px;
+}
+.modal input:focus{outline:none;border-color:var(--phosphor);box-shadow:var(--glow)}
+.modal-actions{display:flex;gap:6px;justify-content:flex-end}
+.modal-btn{
+  padding:4px 14px;cursor:pointer;font-family:var(--font);font-size:14px;border:1px solid;transition:all .1s;
+}
+.modal-btn.primary{background:var(--phosphor);color:var(--bg);border-color:var(--phosphor)}
+.modal-btn.primary:hover{box-shadow:var(--glow-bright)}
+.modal-btn.secondary{background:transparent;color:var(--text-dim);border-color:var(--border)}
+
+/* ═══ BOOT / MATRIX INTRO ═══ */
+.boot-screen{
+  position:absolute;inset:0;z-index:50;
+  background:var(--bg-screen);
+  display:flex;align-items:center;justify-content:center;
+  flex-direction:column;gap:0;
+  pointer-events:none;
+  overflow:hidden;
+}
+.boot-screen.fade-out{
+  animation:bootFade 1.2s ease forwards;
+}
+@keyframes bootFade{to{opacity:0;visibility:hidden}}
+
+.matrix-wake{
+  font-size:20px;color:var(--phosphor);font-family:var(--font);
+  opacity:0;
+  text-shadow:var(--glow-bright);
+  letter-spacing:2px;
+}
+.matrix-wake.typing{
+  opacity:1;
+}
+.matrix-cursor{
+  display:inline-block;width:10px;height:18px;
+  background:var(--phosphor);
+  animation:cursorBlink 0.6s step-end infinite;
+  vertical-align:text-bottom;
+  margin-left:2px;
+}
+@keyframes cursorBlink{0%,100%{opacity:1}50%{opacity:0}}
+
+.matrix-follow{
+  font-size:15px;color:var(--phosphor-dim);font-family:var(--font);
+  opacity:0;letter-spacing:1px;margin-top:6px;
+  transition:opacity 0.4s;
+}
+.matrix-follow.show{opacity:1}
+
+.ascii-banner{
+  font-size:11px;line-height:1.15;
+  color:var(--phosphor);text-shadow:var(--glow);
+  font-family:'Courier New',monospace;
+  white-space:pre;text-align:center;
+  opacity:0;
+  transform:scale(0.95);
+  transition:opacity 0.6s ease, transform 0.6s ease;
+  margin:12px 0 8px;
+}
+.ascii-banner.show{opacity:1;transform:scale(1)}
+
+.boot-lines{
+  display:flex;flex-direction:column;align-items:center;gap:2px;
+  margin-top:8px;
+}
+.boot-line{
+  font-size:12px;color:var(--phosphor-dim);font-family:var(--font);
+  opacity:0;transition:opacity 0.15s ease;letter-spacing:1px;
+}
+.boot-line.show{opacity:1}
+.boot-line.bright{color:var(--phosphor-bright);text-shadow:var(--glow);font-size:13px}
+
+/* ═══ HUD BANNER (permanent top 20%) ═══ */
+.hud-banner{
+  position:relative;z-index:6;
+  height:20%;min-height:100px;max-height:180px;
+  border-bottom:1px solid var(--border);
+  display:flex;align-items:stretch;
+  padding:0;flex-shrink:0;
+  background:linear-gradient(180deg, rgba(51,255,0,0.03) 0%, transparent 100%);
+  opacity:0;transition:opacity 0.8s ease;
+  overflow:hidden;
+}
+.hud-banner.visible{opacity:1}
+.hud-ascii{
+  width:200px;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+  border-right:1px solid var(--border);
+  padding:8px 12px;
+  position:relative;
+}
+.hud-ascii pre{
+  font-size:9px;line-height:1.1;
+  color:var(--phosphor);text-shadow:var(--glow);
+  font-family:'Courier New',monospace;
+  white-space:pre;margin:0;
+}
+.hud-ascii .hud-ver{
+  position:absolute;bottom:4px;left:0;right:0;
+  text-align:center;font-size:10px;
+  color:var(--text-dim);letter-spacing:2px;
+}
+.hud-stats{
+  flex:1;display:grid;
+  grid-template-columns:repeat(auto-fit, minmax(110px, 1fr));
+  grid-auto-rows:1fr;
+  gap:1px;padding:1px;min-width:0;
+}
+.hud-stat{
+  display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+  padding:4px 6px;
+  background:rgba(51,255,0,0.02);
+  border:1px solid transparent;
+  transition:border-color 0.3s;
+  gap:2px;
+}
+.hud-stat:hover{border-color:var(--border)}
+.hud-stat .hs-value{
+  font-size:26px;line-height:1;
+  color:var(--phosphor-bright);text-shadow:var(--glow);
+}
+.hud-stat .hs-label{
+  font-size:10px;letter-spacing:2px;text-transform:uppercase;
+  color:var(--text-dim);
+}
+.hud-stat .hs-sub{
+  font-size:10px;color:var(--text-dim);
+  letter-spacing:1px;
+}
+.hud-stat.pace-ahead .hs-value{color:var(--phosphor-bright);text-shadow:var(--glow-bright)}
+.hud-stat.pace-on_track .hs-value{color:var(--cyan)}
+.hud-stat.pace-lagging .hs-value{color:var(--red);text-shadow:0 0 6px var(--red-dim)}
+.hud-stat.pace-no_baseline .hs-value{color:var(--text-dim)}
+/* Ship day dots in HUD */
+.hud-ship-dots{display:flex;gap:3px;margin-top:2px}
+.hud-ship-dot{
+  width:14px;height:14px;border:1px solid var(--border);
+  display:flex;align-items:center;justify-content:center;
+  font-size:9px;color:var(--text-dim);
+}
+.hud-ship-dot.filled{background:var(--phosphor);color:var(--bg);border-color:var(--phosphor)}
+/* Quest mini display */
+.hud-quests{display:flex;flex-direction:column;gap:2px;width:100%}
+.hud-quest-row{
+  display:flex;align-items:center;gap:4px;
+  font-size:11px;padding:1px 4px;
+}
+.hud-quest-row .qb{color:var(--cyan);min-width:18px;font-size:10px}
+.hud-quest-row .qt{flex:1;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+@media(max-width:700px){
+  .hud-ascii{width:60px;padding:4px}
+  .hud-ascii pre{font-size:6px}
+  .hud-ascii .hud-ver{display:none}
+  .hud-stat .hs-value{font-size:20px}
+  .hud-stats{grid-template-columns:repeat(3,1fr)}
+}
+
+
+/* ═══ FILE BROWSER ═══ */
+.fb-tree{padding:4px 0}
+.fb-entry{
+  display:flex;align-items:center;gap:6px;
+  padding:3px 8px;cursor:pointer;
+  font-size:13px;color:var(--text);
+  border-left:2px solid transparent;
+  transition:background 0.15s, border-color 0.15s;
+}
+.fb-entry:hover{background:rgba(51,255,0,0.04);border-left-color:var(--phosphor)}
+.fb-entry.fb-dir{color:var(--cyan)}
+.fb-entry .fb-icon{min-width:16px;text-align:center;font-size:12px}
+.fb-entry .fb-name{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fb-entry .fb-size{font-size:11px;color:var(--text-dim);min-width:60px;text-align:right}
+.fb-entry .fb-time{font-size:10px;color:var(--text-dim);min-width:80px;text-align:right}
+.fb-viewer{margin-top:8px;border:1px solid var(--border);background:rgba(0,0,0,0.3);overflow:auto;max-height:400px}
+.fb-viewer pre{font-size:12px;line-height:1.4;padding:10px;margin:0;color:var(--text);white-space:pre-wrap;word-break:break-word}
+.fb-viewer .line-nums{display:inline-block;min-width:30px;text-align:right;padding-right:8px;color:var(--text-dim);user-select:none;border-right:1px solid var(--border);margin-right:8px}
+.fb-toolbar{display:flex;align-items:center;gap:6px;padding:6px 0;border-bottom:1px solid var(--border);margin-bottom:6px}
+.fb-toolbar .fb-path{flex:1;font-size:13px;color:var(--phosphor);letter-spacing:1px}
+.fb-toolbar button{font-size:11px}
+.fb-editor{width:100%;min-height:200px;max-height:400px;background:rgba(0,0,0,0.4);color:var(--text);border:1px solid var(--border);font-family:var(--font);font-size:12px;padding:8px;resize:vertical}
+.fb-crumb{display:flex;align-items:center;gap:2px;padding:4px 0;font-size:12px}
+.fb-crumb span{color:var(--text-dim);cursor:pointer;padding:1px 4px}
+.fb-crumb span:hover{color:var(--phosphor);text-decoration:underline}
+.fb-crumb span.active{color:var(--phosphor-bright)}
+
+/* ═══ MANAGE UI (drag/drop + delete) ═══ */
+.manage-group{margin:4px 0 10px}
+.manage-group-title{
+  display:flex;align-items:center;gap:6px;
+  font-size:12px;letter-spacing:2px;text-transform:uppercase;
+  color:var(--text-dim);margin:8px 0 4px;padding:2px 4px;
+  border-bottom:1px solid var(--border);
+}
+.manage-group-title .mg-count{color:var(--phosphor-dim);font-size:11px}
+.manage-row{
+  display:flex;align-items:center;gap:6px;padding:4px 6px;
+  border:1px solid var(--border);margin-bottom:2px;
+  background:transparent;transition:all .15s;
+  user-select:none;
+}
+.manage-row:hover{border-color:var(--border-hi)}
+.manage-row.dragging{opacity:0.4;border-color:var(--phosphor);background:var(--phosphor-glow)}
+.manage-row.drag-over{border-top:2px solid var(--phosphor);margin-top:-2px}
+.manage-row.drag-over-below{border-bottom:2px solid var(--phosphor);margin-bottom:0}
+.drag-handle{
+  cursor:grab;color:var(--text-dim);font-size:14px;
+  padding:2px 4px;flex-shrink:0;letter-spacing:-1px;
+  transition:color .15s;
+}
+.drag-handle:hover{color:var(--phosphor)}
+.drag-handle:active{cursor:grabbing}
+.manage-row .mr-info{flex:1;display:flex;align-items:center;gap:6px;min-width:0;overflow:hidden}
+.manage-row .mr-info .art-title{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.manage-row .mr-actions{display:flex;gap:3px;flex-shrink:0}
+.delete-btn{
+  padding:2px 7px;font-size:11px;cursor:pointer;
+  border:1px solid var(--red-dim);color:var(--red-dim);
+  background:transparent;font-family:var(--font);
+  transition:all .15s;letter-spacing:1px;
+}
+.delete-btn:hover{border-color:var(--red);color:var(--red);background:rgba(255,51,51,0.08)}
+.rename-btn{
+  padding:2px 7px;font-size:11px;cursor:pointer;
+  border:1px solid var(--border);color:var(--text-dim);
+  background:transparent;font-family:var(--font);
+  transition:all .15s;
+}
+.rename-btn:hover{border-color:var(--cyan);color:var(--cyan)}
+.manage-toolbar{
+  display:flex;align-items:center;gap:8px;margin-top:8px;
+  padding-top:8px;border-top:1px solid var(--border);
+}
+.manage-save-btn{
+  padding:5px 14px;background:var(--phosphor);color:var(--bg);
+  border:1px solid var(--phosphor);cursor:pointer;
+  font-family:var(--font);font-size:14px;text-shadow:none;transition:all .1s;
+}
+.manage-save-btn:hover{box-shadow:var(--glow-bright);filter:brightness(1.1)}
+.manage-save-btn:disabled{opacity:.3;cursor:not-allowed}
+.manage-hint{font-size:12px;color:var(--text-dim)}
+.manage-tab-bar{display:flex;gap:0;margin-bottom:8px}
+.manage-tab{
+  padding:5px 14px;font-size:13px;cursor:pointer;
+  border:1px solid var(--border);background:transparent;
+  color:var(--text-dim);font-family:var(--font);
+  letter-spacing:1px;transition:all .1s;
+}
+.manage-tab:first-child{border-right:none}
+.manage-tab:last-child{border-left:none}
+.manage-tab:hover{color:var(--text);border-color:var(--border-hi)}
+.manage-tab.active{background:var(--phosphor-glow);color:var(--phosphor-bright);border-color:var(--phosphor);text-shadow:var(--glow)}
+.confirm-delete-overlay{
+  position:fixed;inset:0;z-index:300;
+  background:rgba(0,0,0,0.85);
+  display:flex;align-items:center;justify-content:center;
+}
+.confirm-delete-box{
+  background:var(--bg-bezel);border:2px solid var(--red);
+  padding:20px;width:90%;max-width:400px;
+  box-shadow:0 0 20px rgba(255,51,51,0.3);
+}
+.confirm-delete-box h3{color:var(--red);font-size:15px;font-weight:normal;margin-bottom:8px}
+.confirm-delete-box p{color:var(--text);font-size:14px;margin-bottom:14px}
+
+/* ═══ RESPONSIVE ═══ */
+@media(max-width:700px){
+  body{padding:0}
+  .monitor{border-radius:0;height:100vh;max-width:none;padding:8px}
+  .sidebar{width:44px;padding:8px 2px}
+  .sk-btn .fk-name{display:none}
+  .sk-label{display:none}
+  .sk-btn{justify-content:center;padding:6px}
+}
+</style>
+</head>
+<body>
+
+<div class="monitor">
+  <div class="monitor-bar">
+    <div class="monitor-brand">Portfolio Quest League</div>
+    <div class="monitor-model" id="endpointDisplay" style="cursor:pointer" onclick="showEndpointModal()">—</div>
+    <div class="power-led" id="statusDot" title="Connection status"></div>
+  </div>
+
+  <div class="screen">
+    <div class="boot-screen" id="bootScreen">
+      <div class="matrix-wake" id="matrixWake"><span id="wakeText"></span><span class="matrix-cursor" id="wakeCursor"></span></div>
+      <div class="matrix-follow" id="matrixFollow">The Matrix has you...</div>
+      <div class="matrix-follow" id="matrixFollow2">Follow the white rabbit.</div>
+      <div class="matrix-follow" id="matrixKnock">Knock, knock.</div>
+      <pre class="ascii-banner" id="asciiBanner">
+ ██████╗  ██████╗ ██╗     
+ ██╔══██╗██╔═══██╗██║     
+ ██████╔╝██║   ██║██║     
+ ██╔═══╝ ██║▄▄ ██║██║     
+ ██║     ╚██████╔╝███████╗
+ ╚═╝      ╚══▀▀═╝ ╚══════╝
+ PORTFOLIO  QUEST  LEAGUE</pre>
+      <div class="boot-lines" id="bootLines">
+        <div class="boot-line">PQL KERNEL v5.2</div>
+        <div class="boot-line">STATIC DATA STORE ............ OK</div>
+        <div class="boot-line">EPIC LIBRARY ................. OK</div>
+        <div class="boot-line">AI CLASSIFIER ................ OK</div>
+        <div class="boot-line">WEBHOOK ENDPOINT ............. OK</div>
+        <div class="boot-line bright">SYSTEM READY ■</div>
+      </div>
+    </div>
+
+    <div class="hud-banner" id="hudBanner">
+      <div class="hud-ascii">
+        <pre>
+██████╗  ██████╗ ██╗
+██╔══██╗██╔═══██╗██║
+██████╔╝██║   ██║██║
+██╔═══╝ ██║▄▄ ██║██║
+██║     ╚██████╔╝███████╗
+╚═╝      ╚══▀▀═╝ ╚══════╝</pre>
+        <span class="hud-ver" id="hudWeekLabel">—</span>
+      </div>
+      <div class="hud-stats" id="hudStats">
+        <div class="hud-stat" id="hudXP">
+          <span class="hs-value" id="hudXPVal">—</span>
+          <span class="hs-label">XP THIS WEEK</span>
+          <span class="hs-sub" id="hudXPSub">&nbsp;</span>
+        </div>
+        <div class="hud-stat" id="hudPace">
+          <span class="hs-value" id="hudPaceVal">—</span>
+          <span class="hs-label">PACE</span>
+          <span class="hs-sub" id="hudPaceSub">&nbsp;</span>
+        </div>
+        <div class="hud-stat" id="hudShipDays">
+          <span class="hs-value" id="hudShipVal">—</span>
+          <span class="hs-label">SHIP DAYS</span>
+          <div class="hud-ship-dots" id="hudShipDots"></div>
+        </div>
+        <div class="hud-stat" id="hudQuests">
+          <span class="hs-value" id="hudQuestVal">—</span>
+          <span class="hs-label">QUESTS</span>
+          <div class="hud-quests" id="hudQuestList"></div>
+        </div>
+        <div class="hud-stat" id="hudOpen">
+          <span class="hs-value" id="hudOpenVal">—</span>
+          <span class="hs-label">OPEN ARTS</span>
+          <span class="hs-sub" id="hudOpenSub">&nbsp;</span>
+        </div>
+        <div class="hud-stat" id="hudTotal">
+          <span class="hs-value" id="hudTotalVal">—</span>
+          <span class="hs-label">TOTAL XP</span>
+          <span class="hs-sub" id="hudTotalSub">&nbsp;</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="screen-inner">
+      <aside class="sidebar">
+        <div class="sk-label">SYS</div>
+        <button class="sk-btn" onclick="sendCmd('init')"><span class="fk">F1</span><span class="fk-name">INIT</span></button>
+        <button class="sk-btn" onclick="sendCmd('debug')"><span class="fk">F2</span><span class="fk-name">DEBUG</span></button>
+
+        <div class="sk-label">DAY</div>
+        <button class="sk-btn" onclick="sendCmd('start')"><span class="fk">F3</span><span class="fk-name">START</span></button>
+        <button class="sk-btn" onclick="sendCmd('sync')"><span class="fk">F4</span><span class="fk-name">SYNC</span></button>
+        <button class="sk-btn" onclick="sendCmd('wrapup')"><span class="fk">F5</span><span class="fk-name">WRAP</span></button>
+
+        <div class="sk-label">WK</div>
+        <button class="sk-btn" onclick="sendCmd('week')"><span class="fk">F6</span><span class="fk-name">WEEK</span></button>
+        <button class="sk-btn" onclick="sendCmd('status')"><span class="fk">F7</span><span class="fk-name">STAT</span></button>
+        <button class="sk-btn" onclick="sendCmd('swap')"><span class="fk">F8</span><span class="fk-name">SWAP</span></button>
+
+        <div class="sk-label">CFG</div>
+        <button class="sk-btn" onclick="sendCmd('edit')"><span class="fk">F9</span><span class="fk-name">EDIT</span></button>
+        <button class="sk-btn" onclick="sendCmd('ops')"><span class="fk">F10</span><span class="fk-name">OPS</span></button>
+        <button class="sk-btn" onclick="sendCmd('files')"><span class="fk">F11</span><span class="fk-name">FILE</span></button>
+
+        <div style="flex:1"></div>
+        <button class="sk-btn" onclick="sendRawPayload()"><span class="fk">^^</span><span class="fk-name">RAW</span></button>
+        <button class="sk-btn" onclick="clearFeed()"><span class="fk">F0</span><span class="fk-name">CLR</span></button>
+      </aside>
+
+      <div class="terminal">
+        <div class="feed" id="feed">
+          <div class="msg">
+            <div class="msg-body" style="text-align:center;padding:24px;color:var(--text-dim)">
+              <div style="font-size:20px;color:var(--phosphor-bright);text-shadow:var(--glow);margin-bottom:4px">PORTFOLIO QUEST LEAGUE v5.2</div>
+              <div style="font-size:14px">Type brain dump + ENTER or press F3-F7</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="prompt-area">
+          <div class="prompt-prefix">pql&gt;_</div>
+          <textarea id="userInput" placeholder="brain dump, command, or json..." rows="1" onkeydown="handleKey(event)"></textarea>
+          <button class="send-btn" id="sendBtn" onclick="sendFromInput()">EXEC</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════════
+const DEFAULT_URL = 'https://n8n-dev.ecouncil.ae/webhook/portfolio-quest-league';
+let webhookUrl = localStorage.getItem('pql_endpoint') || DEFAULT_URL;
+let activeCmd = null;
+let lastResponse = null;
+let sending = false;
+
+// ═══════════════════════════════════════════════════════
+// HUD BANNER STATE
+// ═══════════════════════════════════════════════════════
+const hudState = {
+  week_id: '—', xp_this_week: 0, xp_total: 0, baseline: 0,
+  min_threshold: 0, ahead_threshold: 0, pace: 'no_baseline',
+  ship_days: 0, ship_target: 3, ship_dates: [],
+  quests: [], open_count: 0, committed_count: 0
+};
+
+function updateBanner(data) {
+  if (!data || data.status === 'error') return;
+  let changed = false;
+
+  // Extract pace from any response that has it
+  if (data.pace) {
+    const p = data.pace;
+    hudState.xp_this_week = p.this_week_xp ?? hudState.xp_this_week;
+    hudState.baseline = p.baseline_xp ?? hudState.baseline;
+    hudState.min_threshold = p.min_threshold ?? hudState.min_threshold;
+    hudState.ahead_threshold = p.ahead_threshold ?? hudState.ahead_threshold;
+    hudState.pace = p.pace || hudState.pace;
+    hudState.ship_days = p.ship_days ?? hudState.ship_days;
+    hudState.ship_target = p.ship_day_target ?? 3;
+    hudState.ship_dates = p.ship_dates || hudState.ship_dates;
+    changed = true;
+  }
+
+  // Week ID
+  if (data.week_id) { hudState.week_id = data.week_id; changed = true; }
+
+  // Total XP from wrapup
+  if (data.xp_total !== undefined) { hudState.xp_total = data.xp_total; changed = true; }
+
+  // Quests from /week, /start plan_saved, /status
+  if (data.quests && Array.isArray(data.quests) && data.quests.length > 0) {
+    hudState.quests = data.quests; changed = true;
+  }
+
+  // Open artifact count from /start review
+  if (data.open_count !== undefined) { hudState.open_count = data.open_count; changed = true; }
+  // Or from remaining_count in wrapup
+  if (data.remaining_count !== undefined) { hudState.open_count = data.remaining_count; changed = true; }
+
+  // Committed count
+  if (data.committed_artifacts && Array.isArray(data.committed_artifacts)) {
+    hudState.committed_count = data.committed_artifacts.length; changed = true;
+  }
+  if (data.committed && Array.isArray(data.committed)) {
+    hudState.committed_count = data.committed.length; changed = true;
+  }
+
+  if (changed) renderBanner();
+}
+
+function renderBanner() {
+  const banner = document.getElementById('hudBanner');
+  if (!banner.classList.contains('visible')) banner.classList.add('visible');
+
+  // Week label
+  document.getElementById('hudWeekLabel').textContent = hudState.week_id;
+
+  // XP this week
+  document.getElementById('hudXPVal').textContent = hudState.xp_this_week;
+  const xpSub = hudState.baseline > 0
+    ? 'BASE ' + hudState.baseline + ' | ' + hudState.min_threshold + '–' + hudState.ahead_threshold
+    : 'NO BASELINE';
+  document.getElementById('hudXPSub').textContent = xpSub;
+
+  // Pace
+  const paceMap = { ahead:'AHEAD', on_track:'ON TRACK', lagging:'LAGGING', no_baseline:'—' };
+  const paceEl = document.getElementById('hudPace');
+  document.getElementById('hudPaceVal').textContent = paceMap[hudState.pace] || hudState.pace;
+  paceEl.className = 'hud-stat pace-' + hudState.pace;
+  const paceEmoji = { ahead:'▲', on_track:'●', lagging:'▼', no_baseline:'○' };
+  document.getElementById('hudPaceSub').textContent = paceEmoji[hudState.pace] || '';
+
+  // Ship days
+  document.getElementById('hudShipVal').textContent = hudState.ship_days + '/' + hudState.ship_target;
+  const dotsEl = document.getElementById('hudShipDots');
+  const days = ['M','T','W','T','F'];
+  dotsEl.innerHTML = days.map((d, i) => {
+    const filled = i < hudState.ship_days;
+    return `<div class="hud-ship-dot${filled ? ' filled' : ''}">${d}</div>`;
+  }).join('');
+
+  // Quests
+  const qCount = (hudState.quests || []).length;
+  document.getElementById('hudQuestVal').textContent = qCount || '—';
+  const qList = document.getElementById('hudQuestList');
+  if (qCount > 0) {
+    qList.innerHTML = hudState.quests.map(q =>
+      `<div class="hud-quest-row"><span class="qb">${q.quest_id||'Q'}</span><span class="qt">${q.epic_id} → ${q.friday_finishline_artifact_id||q.friday_artifact_id||'?'}</span></div>`
+    ).join('');
+  } else {
+    qList.innerHTML = '<div style="font-size:10px;color:var(--text-dim)">NO PLAN</div>';
+  }
+
+  // Open artifacts
+  document.getElementById('hudOpenVal').textContent = hudState.open_count || '—';
+  document.getElementById('hudOpenSub').textContent = hudState.committed_count > 0
+    ? hudState.committed_count + ' COMMITTED'
+    : '';
+
+  // Total XP
+  document.getElementById('hudTotalVal').textContent = hudState.xp_total || '—';
+  document.getElementById('hudTotalSub').textContent = hudState.xp_total > 0 ? 'ALL TIME' : '';
+}
+
+document.getElementById('endpointDisplay').textContent = webhookUrl;
+
+// ═══════════════════════════════════════════════════════
+// ENDPOINT MODAL
+// ═══════════════════════════════════════════════════════
+function showEndpointModal() {
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = `
+    <div class="modal">
+      <h3>[ ENDPOINT CONFIG ]</h3>
+      <input type="text" id="modalInput" value="${webhookUrl}" placeholder="https://your-n8n.com/webhook/portfolio-quest-league"/>
+      <div class="modal-actions">
+        <button class="modal-btn secondary" onclick="this.closest('.modal-overlay').remove()">ESC</button>
+        <button class="modal-btn primary" onclick="saveEndpoint()">SAVE</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  document.getElementById('modalInput').focus();
+  document.getElementById('modalInput').select();
+}
+function saveEndpoint() {
+  const val = document.getElementById('modalInput').value.trim();
+  if (val) {
+    webhookUrl = val;
+    localStorage.setItem('pql_endpoint', val);
+    document.getElementById('endpointDisplay').textContent = val;
+  }
+  document.querySelector('.modal-overlay')?.remove();
+}
+
+// ═══════════════════════════════════════════════════════
+// CORE SEND
+// ═══════════════════════════════════════════════════════
+async function sendPayload(payload) {
+  if (sending) return;
+  sending = true;
+  const btn = document.getElementById('sendBtn');
+  btn.disabled = true;
+
+  // Show clean sent message (not raw JSON)
+  const sentLabel = payload.free_text
+    ? '"' + payload.free_text.substring(0, 120) + (payload.free_text.length > 120 ? '…' : '') + '"'
+    : payload.shipped ? payload.shipped.length + ' artifact(s)'
+    : payload.phase ? 'phase=' + payload.phase
+    : payload.epic_id ? payload.epic_id + (payload.new_title ? ' → ' + payload.new_title : '')
+    : payload.remove_move_id ? payload.remove_move_id + ' → ' + (payload.new_artifact_id || '?')
+    : '';
+  addSentMessage(payload.cmd || 'raw', sentLabel);
+  const loadId = addLoading();
+
+  const dot = document.getElementById('statusDot');
+  try {
+    const res = await fetch(webhookUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    let data = await res.json();
+    
+    // DEBUG: log raw response shape (check F12 console)
+    console.log('[PQL] raw response:', typeof data, Array.isArray(data) ? 'array[' + data.length + ']' : '', JSON.stringify(data).substring(0, 200));
+
+    // n8n lastNode response mode can return many shapes — normalize aggressively:
+    //   [{ cmd, phase, ... }]            ← array of plain items
+    //   [{ json: { cmd, phase, ... } }]  ← n8n internal format leaked
+    //   { json: { cmd, phase, ... } }    ← single wrapped item
+    //   { cmd, phase, ... }              ← direct object (ideal)
+    //   [[{ ... }]]                      ← double-nested (rare)
+    if (Array.isArray(data)) {
+      data = data[0] || {};
+      if (Array.isArray(data)) data = data[0] || {}; // double-nested
+    }
+    if (data.json && typeof data.json === 'object' && (data.json.cmd || data.json.status)) data = data.json;
+    // Some n8n versions nest under a "data" key
+    if (data.data && typeof data.data === 'object' && (data.data.cmd || data.data.status)) data = data.data;
+    
+    console.log('[PQL] unwrapped:', { cmd: data.cmd, phase: data.phase, mode: data.mode, status: data.status });
+
+    lastResponse = data;
+    removeLoading(loadId);
+    dot.classList.remove('off');
+
+    const cmd = data.cmd || payload.cmd || '?';
+    const isError = data.status === 'error';
+    const isAI = data.phase === 'ai_classified';
+    renderResponse(cmd, data, isError, isAI);
+    updateBanner(data);
+  } catch (e) {
+    removeLoading(loadId);
+    dot.classList.add('off');
+    addMessage('error', 'error', 'CONNECTION REFUSED: ' + e.message);
+  } finally {
+    sending = false;
+    btn.disabled = false;
+  }
+}
+
+function sendCmd(cmd) {
+  const input = document.getElementById('userInput');
+  const text = input.value.trim();
+  const payload = { cmd };
+  if (text) payload.free_text = text;
+  input.value = '';
+  input.style.height = '24px';
+  activeCmd = cmd;
+  highlightBtn(cmd);
+  sendPayload(payload);
+}
+
+function sendFromInput() {
+  const input = document.getElementById('userInput');
+  const text = input.value.trim();
+  if (!text) return;
+  try {
+    const obj = JSON.parse(text);
+    if (obj.cmd) { input.value = ''; input.style.height = '24px'; sendPayload(obj); return; }
+  } catch {}
+  sendCmd('sync');
+}
+
+function sendRawPayload() {
+  const input = document.getElementById('userInput');
+  const text = input.value.trim();
+  if (!text) { input.value = JSON.stringify({ cmd: 'sync', free_text: '' }, null, 2); input.focus(); return; }
+  try { const obj = JSON.parse(text); input.value = ''; input.style.height = '24px'; sendPayload(obj); }
+  catch { addMessage('error', 'error', 'PARSE ERROR: Invalid JSON'); }
+}
+
+function handleKey(e) {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendFromInput(); }
+  const ta = e.target;
+  setTimeout(() => { ta.style.height = '24px'; ta.style.height = Math.min(ta.scrollHeight, 100) + 'px'; }, 0);
+}
+
+document.addEventListener('keydown', e => {
+  if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT') return;
+  const map = { F3: 'start', F4: 'sync', F5: 'wrapup', F6: 'week', F7: 'status', F8: 'swap', F9: 'edit', F10: 'ops', F11: 'files', F1: 'init', F2: 'debug' };
+  if (map[e.key]) { e.preventDefault(); sendCmd(map[e.key]); }
+});
+
+function highlightBtn(cmd) {
+  document.querySelectorAll('.sk-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.sk-btn').forEach(b => {
+    if (b.getAttribute('onclick')?.includes(`'${cmd}'`)) b.classList.add('active');
+  });
+}
+
+// ═══════════════════════════════════════════════════════
+// MESSAGE RENDERING
+// ═══════════════════════════════════════════════════════
+function addMessage(type, cmd, content) {
+  const feed = document.getElementById('feed');
+  const msg = document.createElement('div');
+  msg.className = 'msg';
+  const time = new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  const dirClass = type==='sent'?'dir-in':type==='error'?'dir-in':'dir-out';
+  const dirSymbol = type==='sent'?'>>':'<<';
+  const bodyClass = type==='error'?'error':'';
+  msg.innerHTML = `
+    <div class="msg-prompt"><span class="${dirClass}">${dirSymbol}</span> <span class="cmd-tag">/${cmd}</span> <span class="time-tag">${time}</span></div>
+    <div class="msg-body ${bodyClass}"><pre>${escHtml(content)}</pre></div>`;
+  feed.appendChild(msg);
+  feed.scrollTop = feed.scrollHeight;
+  return msg;
+}
+
+function addRichMessage(type, cmd, html) {
+  const feed = document.getElementById('feed');
+  const msg = document.createElement('div');
+  msg.className = 'msg';
+  const time = new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  const bodyClass = type==='ai'?'ai-out':'';
+  msg.innerHTML = `
+    <div class="msg-prompt"><span class="dir-out">&lt;&lt;</span> <span class="cmd-tag">/${cmd}</span> <span class="time-tag">${time}</span></div>
+    <div class="msg-body ${bodyClass}">${html}</div>`;
+  feed.appendChild(msg);
+  feed.scrollTop = feed.scrollHeight;
+  return msg;
+}
+
+let loadingCounter = 0;
+function addLoading() {
+  const id = 'load-' + (++loadingCounter);
+  const feed = document.getElementById('feed');
+  const msg = document.createElement('div');
+  msg.className = 'msg'; msg.id = id;
+  msg.innerHTML = `<div class="loading-line">PROCESSING</div>`;
+  feed.appendChild(msg);
+  feed.scrollTop = feed.scrollHeight;
+  return id;
+}
+function removeLoading(id) { document.getElementById(id)?.remove(); }
+function clearFeed() { document.getElementById('feed').innerHTML = ''; }
+function escHtml(s) { return (s == null ? '' : String(s)).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+
+// Clean "sent" bubble — shows command + brief label, never raw JSON
+function addSentMessage(cmd, label) {
+  const feed = document.getElementById('feed');
+  const msg = document.createElement('div');
+  msg.className = 'msg';
+  const time = new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  const displayLabel = label ? `: ${escHtml(label)}` : '';
+  msg.innerHTML = `
+    <div class="msg-prompt"><span class="dir-in">&gt;&gt;</span> <span class="cmd-tag">/${escHtml(cmd)}</span>${displayLabel} <span class="time-tag">${time}</span></div>`;
+  feed.appendChild(msg);
+  feed.scrollTop = feed.scrollHeight;
+  return msg;
+}
+
+// Lightweight markdown → CRT-styled HTML (for the markdown field from the engine)
+function mdToHtml(md) {
+  if (!md) return '';
+  return md
+    .replace(/^## (.+)$/gm, '<div class="section-title" style="margin-top:8px">$1</div>')
+    .replace(/^### (.+)$/gm, '<div style="color:var(--cyan);font-size:14px;letter-spacing:1px;margin:8px 0 4px;text-transform:uppercase">$1</div>')
+    .replace(/^\s*- ★ \*\*(.+?)\*\*(.*)$/gm, '<div class="art-row"><span class="badge badge-yellow">★</span><span class="art-title" style="color:var(--amber)">$1</span><span style="font-size:12px;color:var(--text-dim)">$2</span></div>')
+    .replace(/^\s*- \*\*(.+?)\*\*(.*)$/gm, '<div class="art-row"><span class="art-id">$1</span><span style="color:var(--text)">$2</span></div>')
+    .replace(/^\s*- (.+)$/gm, '<div class="art-row"><span style="color:var(--text-dim);margin-right:6px">›</span><span>$1</span></div>')
+    .replace(/\*\*(.+?)\*\*/g, '<strong style="color:var(--phosphor-bright)">$1</strong>')
+    .replace(/\*(.+?)\*/g, '<em style="color:var(--text-dim)">$1</em>')
+    .replace(/~~(.+?)~~/g, '<span style="text-decoration:line-through;color:var(--red-dim)">$1</span>')
+    .replace(/`([^`]+)`/g, '<code style="background:var(--phosphor-glow);padding:1px 4px;border-radius:2px">$1</code>')
+    .replace(/^> (.+)$/gm, '<div style="border-left:2px solid var(--phosphor-dim);padding-left:8px;color:var(--text-dim);margin:4px 0">$1</div>')
+    .replace(/^---$/gm, '<hr style="border:none;border-top:1px solid var(--border);margin:8px 0">')
+    .replace(/🟢/g, '<span style="color:#33ff00">●</span>')
+    .replace(/🔵/g, '<span style="color:#00aaff">●</span>')
+    .replace(/🔴/g, '<span style="color:#ff3333">●</span>')
+    .replace(/⚪/g, '<span style="color:#666">●</span>')
+    .replace(/🟡/g, '<span style="color:var(--amber)">●</span>')
+    .replace(/★/g, '<span style="color:var(--amber)">★</span>')
+    .replace(/\n{2,}/g, '<div style="height:6px"></div>')
+    .replace(/\n/g, '');
+}
+
+// ═══════════════════════════════════════════════════════
+// RICH RESPONSE RENDERER (same logic, CRT style)
+// ═══════════════════════════════════════════════════════
+function renderResponse(cmd, data, isError, isAI) {
+  // DEBUG: log what we actually received (check browser console with F12)
+  console.log('[PQL] renderResponse →', { cmd, phase: data.phase, mode: data.mode, status: data.status, keys: Object.keys(data).join(',') });
+
+  if (isError) { addMessage('error', cmd, data.message || data.markdown || 'Unknown error'); return; }
+
+  try {
+  // ─── Rich CRT renderers ───
+  let html = '';
+
+  if (cmd === 'seed' && data.result === 'seeded') {
+    html += `<div class="section"><div class="section-title">SYSTEM SEEDED</div>
+      <div>${data.epics_count} epics | ${data.artifacts_count} artifacts | week ${data.week}</div></div>`;
+    addRichMessage('recv', cmd, html); return;
+  }
+
+  if (cmd === 'init') {
+    const isNew = data.result === 'initialized';
+    html += `<div class="section"><div class="section-title">${isNew ? 'INITIALIZED' : 'ALREADY INITIALIZED'}</div>
+      <div style="font-size:14px;color:var(--text);margin-bottom:4px">${escHtml(data.message || '')}</div>`;
+    if (data.storage_path) html += `<div style="font-size:13px;color:var(--text-dim)">STORAGE: <span style="color:var(--phosphor-bright)">${escHtml(data.storage_path)}</span></div>`;
+    if (!isNew) html += `<div style="margin-top:8px"><button class="confirm-btn reject" onclick='sendPayload({cmd:"init",force:true})'>FORCE REINIT (wipes all data)</button></div>`;
+    html += `</div>`;
+    addRichMessage('recv', cmd, html); return;
+  }
+
+  if (cmd === 'start' && data.phase === 'review') {
+    if (data.brain_dump_captured) html += `<div style="color:var(--phosphor);margin-bottom:6px">+ brain dump captured</div>`;
+    if (data.aging_count > 0) {
+      html += `<div class="section"><div class="section-title">! AGING ARTIFACTS <span class="badge badge-yellow">${data.aging_count}</span></div>`;
+      (data.aging_artifacts||[]).forEach(a => { html += artRow(a, true); });
+      html += '</div>';
+    }
+    html += `<div class="section"><div class="section-title">EPICS</div>`;
+    (data.epics||[]).forEach(e => {
+      if (!e) return;
+      html += `<div style="color:var(--phosphor-bright);text-shadow:var(--glow);margin:6px 0 2px">${escHtml(e.epic_id)} — ${escHtml(e.title)} <span class="badge badge-accent">${escHtml(e.status)}</span></div>`;
+      (e.artifacts||[]).forEach(a => { html += artRowSimple(a); });
+    });
+    html += '</div>';
+    if (data.artifacts_with_dependencies?.length > 0) {
+      html += `<div class="section"><div class="section-title">DEPENDENCIES <span class="badge badge-yellow">${data.artifacts_with_dependencies.length}</span></div>`;
+      data.artifacts_with_dependencies.forEach(a => { html += artRow(a, false, true); });
+      html += '</div>';
+    }
+    if (data.overdue_ops_count > 0) {
+      html += `<div class="section" style="border-color:var(--red);background:rgba(255,51,51,0.04)"><div class="section-title" style="color:var(--red)">🔴 OVERDUE OPS PINGS <span class="badge badge-red">${data.overdue_ops_count}</span></div>`;
+      (data.overdue_ops_pings || []).forEach(o => {
+        html += `<div class="art-row" style="border-left:2px solid var(--red);padding-left:6px">
+          <span class="art-id" style="color:var(--red)">${escHtml(o.id)}</span>
+          <span class="art-title">${escHtml(o.text)}</span>
+          <span style="font-size:12px;color:var(--red)">← ${escHtml(o.waiting_on||'?')} (${o.ping_date})</span>
+          <button class="confirm-btn" style="margin-left:auto;padding:2px 8px;font-size:11px" onclick="markOpsDone('${o.id}')">DONE</button>
+          <button class="confirm-btn" style="padding:2px 8px;font-size:11px;border-color:var(--amber);color:var(--amber)" onclick="promptSetPing('${o.id}','${escHtml((o.waiting_on||'').replace(/'/g,"\\'"))}')">REPING</button>
+        </div>`;
+      });
+      html += '</div>';
+    }
+    // ── Interactive Plan Builder (replaces raw JSON) ──
+    window._planArtifacts = data.all_open_artifacts || [];
+    window._planAssignments = {};
+    window._planShipped = new Set();
+    window._planEpicsData = data.epics || [];
+    const byEpicStart = {};
+    (data.all_open_artifacts||[]).forEach(a => {
+      if (!byEpicStart[a.epic_id]) byEpicStart[a.epic_id] = { epic_id:a.epic_id, epic_title:a.epic_title||a.epic_id, artifacts:[] };
+      byEpicStart[a.epic_id].artifacts.push(a);
+    });
+    const epicGroupsStart = Object.values(byEpicStart);
+
+    // SECTION 1: Mark shipped
+    html += `<div class="section" style="border-color:var(--phosphor-bright)"><div class="section-title" style="color:var(--phosphor-bright)">MARK SHIPPED SINCE LAST PLAN</div>
+      <div style="font-size:12px;color:var(--text-dim);margin-bottom:6px">Click to toggle — shipped items earn XP and are removed from planning below</div>`;
+    epicGroupsStart.forEach(eg => {
+      html += `<div class="pb-label">${escHtml(eg.epic_id)} — ${escHtml(eg.epic_title)}</div>`;
+      eg.artifacts.forEach(a => {
+        const isAging = (data.aging_artifacts||[]).some(ag => ag.artifact_id === a.artifact_id);
+        html += `<div class="pb-card" id="ship-${a.artifact_id}" onclick="toggleStartShip(this,'${a.artifact_id}')" style="cursor:pointer${isAging ? ';border-left:2px solid var(--amber)' : ''}"><div class="pb-info">
+            <span class="art-status status-${a.status||'open'}">${a.status||'open'}</span>
+            <span class="art-id">${escHtml(a.artifact_id)}</span>
+            <span class="art-title" title="${escHtml(a.title)}">${escHtml(a.title)}</span>
+            <span class="art-xp">${a.xp} XP</span><span class="art-type">${a.type}</span>
+          </div><div class="pb-radio-group"><span style="font-size:12px;color:var(--text-dim);padding:2px 6px" class="ship-label">SHIP?</span></div></div>`;
+      });
+    });
+    html += `</div>`;
+
+    // SECTION 2: Assign C/S/P
+    html += `<div class="section"><div class="section-title">ASSIGN ARTIFACTS</div>
+      <div style="font-size:12px;color:var(--text-dim);margin-bottom:6px"><b>C</b>=COMMIT / <b>S</b>=STRETCH / <b>P</b>=PARK — items marked shipped above are excluded</div>
+      <div class="plan-builder" id="pbArtifactsStart">`;
+    epicGroupsStart.forEach(eg => {
+      html += `<div class="pb-label">${escHtml(eg.epic_id)} — ${escHtml(eg.epic_title)}</div>`;
+      eg.artifacts.forEach(a => {
+        html += `<div class="pb-card pb-assign-card" id="pb-${a.artifact_id}" data-aid="${a.artifact_id}"><div class="pb-info">
+            <span class="art-id">${escHtml(a.artifact_id)}</span>
+            <span class="art-title" title="${escHtml(a.title)}">${escHtml(a.title)}</span>
+            <span class="art-xp">${a.xp} XP</span><span class="art-type">${a.type}</span>
+          </div><div class="pb-radio-group">
+            <button class="pb-radio" data-aid="${a.artifact_id}" data-role="committed" onclick="assignArtifact(this)">C</button>
+            <button class="pb-radio" data-aid="${a.artifact_id}" data-role="stretch" onclick="assignArtifact(this)">S</button>
+            <button class="pb-radio" data-aid="${a.artifact_id}" data-role="parked" onclick="assignArtifact(this)">P</button>
+          </div></div>`;
+      });
+    });
+    html += `</div></div>`;
+
+    // SECTION 3: Quests
+    html += `<div class="section" style="border-color:var(--cyan)"><div class="section-title" style="color:var(--cyan)">QUESTS (2 MAX)</div>
+      <div style="font-size:12px;color:var(--text-dim);margin-bottom:6px">Pick Epic + Friday finish line artifact for each quest</div>`;
+    for (let q = 1; q <= 2; q++) {
+      html += `<div class="pb-quest-row"><span class="quest-badge">Q${q}</span>
+        <select class="pb-select" id="quest${q}Epic" onchange="updateQuestArtifacts(${q})"><option value="">— Epic —</option>
+        ${epicGroupsStart.map(eg => `<option value="${eg.epic_id}">${eg.epic_id} — ${escHtml(eg.epic_title)}</option>`).join('')}</select>
+        <select class="pb-select" id="quest${q}Art"><option value="">— Finish Line —</option></select></div>`;
+    }
+    html += `</div>`;
+
+    // SECTION 4: Submit
+    html += `<div class="section"><div class="pb-submit-bar">
+        <button class="pb-submit-btn" onclick="submitStartPlan()">SUBMIT PLAN</button>
+        <span class="pb-hint">SHIPPED:<b id="pbCountShip">0</b> C:<b id="pbCountC">0</b> S:<b id="pbCountS">0</b> P:<b id="pbCountP">0</b></span>
+      </div></div>`;
+    addRichMessage('recv', cmd, html); return;
+  }
+
+  if (cmd === 'start' && data.phase === 'plan_saved') {
+    if (data.xp_earned > 0) html += xpBar(data.xp_earned, 'SHIPS XP');
+    if (data.epic_bonuses?.length > 0) {
+      html += `<div class="section" style="border-color:var(--amber)"><div class="section-title" style="color:var(--amber);text-shadow:0 0 8px var(--amber-dim)">★ EPIC COMPLETE! ★</div>`;
+      data.epic_bonuses.forEach(b => {
+        html += `<div class="art-row"><span class="badge badge-yellow">+${b.bonus_xp} XP</span><span class="art-title" style="color:var(--amber)">${escHtml(b.epic_title || b.epic_id)}</span></div>`;
+      });
+      html += '</div>';
+    }
+    html += questsSection(data.quests);
+    html += movesSection(data.moves);
+    html += artifactListSection('COMMITTED', data.committed_artifacts, 'badge-green');
+    html += artifactListSection('STRETCH', data.stretch_artifacts, 'badge-yellow');
+    html += artifactListSection('PARKED', data.parked_artifacts, 'badge-accent');
+    if (data.pings_due?.length > 0) html += pingsSection(data.pings_due);
+    addRichMessage('recv', cmd, html); return;
+  }
+
+  if (data.phase === 'ai_classified') {
+    const s = data.summary || {};
+    html += `<div class="section"><div class="section-title">AI CLASSIFICATION <span class="badge badge-accent">${s.total_items} items</span></div>
+      <div style="display:flex;gap:10px;font-size:14px;margin-top:2px">
+        <span>OPS:${s.ops_admin||0}</span>
+        <span>LEARN:${s.mastery||0}</span>
+        <span>PORTFOLIO:${(s.portfolio_existing||0)+(s.portfolio_new_artifact||0)+(s.portfolio_new_epic||0)}</span>
+        ${s.clusters_found ? `<span style="color:var(--cyan)">CLUSTERS:${s.clusters_found}</span>` : ''}
+      </div></div>`;
+    if (data.ops_admin_items?.length > 0) {
+      html += `<div class="section"><div class="section-title">OPS/ADMIN</div>`;
+      data.ops_admin_items.forEach(i => { html += `<div class="art-row"><span class="art-status" style="border-color:var(--text-dim);color:var(--text-dim)">OPS</span><span class="art-title">${escHtml(i.text)}</span><span style="font-size:12px;color:var(--text-dim)">${escHtml(i.reasoning||'')}</span></div>`; });
+      html += '</div>';
+    }
+    if (data.mastery_items?.length > 0) {
+      html += `<div class="section"><div class="section-title">MASTERY</div>`;
+      data.mastery_items.forEach(i => { html += `<div class="art-row"><span class="art-status" style="border-color:var(--amber);color:var(--amber)">LEARN</span><span class="art-title">${escHtml(i.text)}</span><span style="font-size:12px;color:var(--text-dim)">${escHtml(i.reasoning||'')}</span></div>`; });
+      html += '</div>';
+    }
+    if (data.portfolio_mapped?.length > 0) {
+      html += `<div class="section"><div class="section-title">MAPPED TO EXISTING</div>`;
+      data.portfolio_mapped.forEach(i => { html += `<div class="art-row"><span class="art-id">${escHtml(i.artifact_id||'')}</span><span class="art-title">${escHtml(i.text)}</span><span style="font-size:12px;color:var(--text-dim)">${escHtml(i.reasoning||'')}</span></div>`; });
+      html += '</div>';
+    }
+
+    if (data.cluster_confirmations?.length > 0) {
+      window._availableEpics = data.available_epics || [];
+      window._syncClusters = data.cluster_confirmations;
+      html += `<div class="section" style="border-color:var(--cyan)"><div class="section-title" style="color:var(--cyan)">CLUSTERS <span class="badge badge-cyan">${data.cluster_confirmations.length}</span></div>
+        <div style="font-size:13px;color:var(--text-dim);margin-bottom:6px">AI grouped related items. Accept, remap, or break apart.</div>`;
+      const epicOpts = (data.available_epics||[]).map(e => `<option value="${e.epic_id}">${e.epic_id} — ${escHtml(e.title)} (${e.open_count} open)</option>`).join('');
+      data.cluster_confirmations.forEach((cl, ci) => {
+        const isNew = cl.action === 'new_epic';
+        // payloadStr removed — confirmCluster reads from window._syncClusters
+        html += `<div class="confirm-card" id="cluster-${ci}" style="border-color:var(--cyan)">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+            <span class="badge ${isNew?'badge-yellow':'badge-green'}">${isNew?'NEW EPIC':'EXISTING'}</span>
+            <span style="color:var(--phosphor-bright);text-shadow:var(--glow)">${escHtml(cl.suggested_epic_title)}</span>
+            <span class="art-xp" style="margin-left:auto">${cl.total_xp} XP</span>
+          </div>
+          <div class="confirm-reason">${escHtml(cl.reasoning)}</div>
+          <div style="margin:6px 0;padding:6px;border:1px solid var(--border)">`;
+        (cl.items||[]).forEach(it => { html += `<div class="art-row"><span class="art-type">${it.suggested_type}</span><span class="art-title">${escHtml(it.suggested_title)}</span><span class="art-xp">${it.suggested_xp} XP</span></div>`; });
+        html += `</div><div class="confirm-actions">
+            <button class="confirm-btn" onclick='confirmCluster(${ci})'>ACCEPT</button>
+            <button class="confirm-btn alt" onclick="showClusterRemap(${ci})">REMAP</button>
+            <button class="confirm-btn reject" onclick="breakCluster(${ci})">BREAK</button>
+          </div>
+          <div class="map-alt" id="cluster-remap-${ci}">
+            <div class="map-alt-label">Remap all to epic</div>
+            <div class="map-alt-row"><select id="clusterEpic-${ci}">${cl.epic_id?`<option value="${cl.epic_id}" selected>${cl.epic_id}</option>`:''}${epicOpts}</select></div>
+            <div style="margin-top:6px"><button class="confirm-btn" onclick="submitClusterRemap(${ci})">EXEC REMAP</button></div>
+          </div>
+        </div>`;
+      });
+      html += '</div>';
+    }
+
+    if (data.pending_confirmations?.length > 0) {
+      window._syncPending = data.pending_confirmations;
+      window._availableEpics = data.available_epics || [];
+      // Split into existing matches and new items
+      const existingMatches = data.pending_confirmations.filter(pc => pc.mode === 'existing_match');
+      const newItems = data.pending_confirmations.filter(pc => pc.mode !== 'existing_match');
+
+      if (existingMatches.length > 0) {
+        html += `<div class="section" style="border-color:var(--cyan)"><div class="section-title" style="color:var(--cyan)">MATCHED TO EXISTING <span class="badge badge-cyan">${existingMatches.length}</span></div>
+          <div style="font-size:12px;color:var(--text-dim);margin-bottom:6px">AI matched these to existing artifacts. Accept the match, or create a new artifact instead.</div>`;
+        const epicOpts = (data.available_epics||[]).map(e => `<option value="${e.epic_id}">${e.epic_id} — ${escHtml(e.title)} (${e.open_count} open)</option>`).join('');
+        existingMatches.forEach((pc, ri) => {
+          const idx = data.pending_confirmations.indexOf(pc);
+          // payloadStr removed — confirmPending reads from window._syncPending
+          const matchedEpic = pc.matched_epic_id || '';
+          const matchedArt = pc.matched_artifact_id || '';
+          const matchedTitle = pc.matched_title || matchedArt;
+          const eOpts = (data.available_epics||[]).map(e => `<option value="${e.epic_id}" ${e.epic_id===matchedEpic?'selected':''}>${e.epic_id} — ${escHtml(e.title)} (${e.open_count} open)</option>`).join('');
+          html += `<div class="confirm-card" id="cc-${idx}" style="border-color:var(--cyan)">
+            <div class="confirm-text">${escHtml(pc.text)}</div>
+            <div style="margin:4px 0;padding:4px 8px;border:1px solid var(--border);background:rgba(51,255,0,0.02)">
+              <span style="font-size:11px;color:var(--text-dim);letter-spacing:1px">MATCHED →</span>
+              <span class="art-id" style="margin-left:4px">${escHtml(matchedArt)}</span>
+              <span style="color:var(--phosphor-bright)">${escHtml(matchedTitle)}</span>
+              <span style="font-size:12px;color:var(--text-dim);margin-left:6px">(${escHtml(matchedEpic)})</span>
+            </div>
+            <div class="confirm-reason" style="font-size:12px">${escHtml(pc.reasoning||'')}</div>
+            <div class="confirm-actions">
+              <button class="confirm-btn" onclick='confirmPending(${idx})'>ACCEPT MATCH</button>
+              <button class="confirm-btn alt" onclick="showAltPanel(${idx},'pick')">NEW ARTIFACT</button>
+              <button class="confirm-btn alt" onclick="showAltPanel(${idx},'new')">NEW EPIC</button>
+              <button class="confirm-btn reject" onclick="this.closest('.confirm-card').style.opacity='0.3';this.closest('.confirm-card').style.pointerEvents='none'">SKIP</button>
+            </div>`;
+          // The PICK EPIC panel here is repurposed as "New artifact in epic" — pre-select the matched epic
+          html += `<div class="map-alt" id="alt-pick-${idx}">
+            <div class="map-alt-label">Create new artifact in epic</div>
+            <div class="map-alt-row"><select id="altEpic-${idx}">${eOpts}</select></div>
+            <div class="map-alt-row"><input type="text" id="altTitle-${idx}" value="${escHtml(pc.text)}" /></div>
+            <div class="map-alt-label">Size</div>
+            <div class="map-alt-type-row" id="altType-${idx}">
+              <button class="type-chip" onclick="pickType(${idx},'slice')">SLICE 2</button>
+              <button class="type-chip selected" onclick="pickType(${idx},'small')">SMALL 3</button>
+              <button class="type-chip" onclick="pickType(${idx},'medium')">MED 8</button>
+              <button class="type-chip" onclick="pickType(${idx},'large')">LRG 12</button>
+            </div>
+            <div style="margin-top:6px"><button class="confirm-btn" onclick="submitMapping(${idx},'create_artifact')">ADD TO EPIC</button></div>
+          </div>
+          <div class="map-alt" id="alt-new-${idx}">
+            <div class="map-alt-label">New epic + artifact</div>
+            <div class="map-alt-row"><input type="text" id="newEpicTitle-${idx}" placeholder="Epic title" /></div>
+            <div class="map-alt-row"><input type="text" id="newArtTitle-${idx}" value="${escHtml(pc.text)}" /></div>
+            <div class="map-alt-label">Size</div>
+            <div class="map-alt-type-row" id="newType-${idx}">
+              <button class="type-chip" onclick="pickNewType(${idx},'slice')">SLICE 2</button>
+              <button class="type-chip selected" onclick="pickNewType(${idx},'small')">SMALL 3</button>
+              <button class="type-chip" onclick="pickNewType(${idx},'medium')">MED 8</button>
+              <button class="type-chip" onclick="pickNewType(${idx},'large')">LRG 12</button>
+            </div>
+            <div style="margin-top:6px"><button class="confirm-btn" onclick="submitMapping(${idx},'create_epic')">CREATE EPIC</button></div>
+          </div>
+        </div>`;
+        });
+        html += '</div>';
+      }
+
+      if (newItems.length > 0) {
+      html += `<div class="section" style="border-color:var(--amber)"><div class="section-title" style="color:var(--amber)">PENDING <span class="badge badge-yellow">${newItems.length}</span></div>`;
+      const epicOpts = (data.available_epics||[]).map(e => `<option value="${e.epic_id}">${e.epic_id} — ${escHtml(e.title)} (${e.open_count} open)</option>`).join('');
+      newItems.forEach((pc, ri) => {
+        const idx = data.pending_confirmations.indexOf(pc);
+        // payloadStr removed — confirmPending reads from window._syncPending
+        const sugEpic = (pc.epic_id) || '';
+        const sugType = (pc.suggested_type) || 'small';
+        const eOpts = (data.available_epics||[]).map(e => `<option value="${e.epic_id}" ${e.epic_id===sugEpic?'selected':''}>${e.epic_id} — ${escHtml(e.title)} (${e.open_count} open)</option>`).join('');
+        html += `<div class="confirm-card" id="cc-${idx}">
+          <div class="confirm-text">${escHtml(pc.text)}</div>
+          <div class="confirm-reason">${escHtml(pc.suggestion)} — ${escHtml(pc.reasoning||'')}</div>
+          <div class="confirm-actions">
+            <button class="confirm-btn" onclick='confirmPending(${idx})'>ACCEPT</button>
+            <button class="confirm-btn alt" onclick="showAltPanel(${idx},'pick')">PICK EPIC</button>
+            <button class="confirm-btn alt" onclick="showAltPanel(${idx},'new')">NEW EPIC</button>
+            <button class="confirm-btn reject" onclick="this.closest('.confirm-card').style.opacity='0.3';this.closest('.confirm-card').style.pointerEvents='none'">SKIP</button>
+          </div>
+          <div class="map-alt" id="alt-pick-${idx}">
+            <div class="map-alt-label">Map to epic</div>
+            <div class="map-alt-row"><select id="altEpic-${idx}">${eOpts}</select></div>
+            <div class="map-alt-row"><input type="text" id="altTitle-${idx}" value="${escHtml(pc.text)}" /></div>
+            <div class="map-alt-label">Size</div>
+            <div class="map-alt-type-row" id="altType-${idx}">
+              <button class="type-chip ${sugType==='slice'?'selected':''}" onclick="pickType(${idx},'slice')">SLICE 2</button>
+              <button class="type-chip ${sugType==='small'?'selected':''}" onclick="pickType(${idx},'small')">SMALL 3</button>
+              <button class="type-chip ${sugType==='medium'?'selected':''}" onclick="pickType(${idx},'medium')">MED 8</button>
+              <button class="type-chip ${sugType==='large'?'selected':''}" onclick="pickType(${idx},'large')">LRG 12</button>
+            </div>
+            <div style="margin-top:6px"><button class="confirm-btn" onclick="submitMapping(${idx},'create_artifact')">ADD TO EPIC</button></div>
+          </div>
+          <div class="map-alt" id="alt-new-${idx}">
+            <div class="map-alt-label">New epic + artifact</div>
+            <div class="map-alt-row"><input type="text" id="newEpicTitle-${idx}" placeholder="Epic title" /></div>
+            <div class="map-alt-row"><input type="text" id="newArtTitle-${idx}" value="${escHtml(pc.text)}" /></div>
+            <div class="map-alt-label">Size</div>
+            <div class="map-alt-type-row" id="newType-${idx}">
+              <button class="type-chip ${sugType==='slice'?'selected':''}" onclick="pickNewType(${idx},'slice')">SLICE 2</button>
+              <button class="type-chip ${sugType==='small'?'selected':''}" onclick="pickNewType(${idx},'small')">SMALL 3</button>
+              <button class="type-chip ${sugType==='medium'?'selected':''}" onclick="pickNewType(${idx},'medium')">MED 8</button>
+              <button class="type-chip ${sugType==='large'?'selected':''}" onclick="pickNewType(${idx},'large')">LRG 12</button>
+            </div>
+            <div style="margin-top:6px"><button class="confirm-btn" onclick="submitMapping(${idx},'create_epic')">CREATE EPIC</button></div>
+          </div>
+        </div>`;
+      });
+      html += '</div>';
+      }
+    }
+    addRichMessage('ai', cmd, html); return;
+  }
+
+  if (data.phase === 'mappings_applied') {
+    html += `<div class="section"><div class="section-title">MAPPINGS APPLIED</div>`;
+    (data.results||[]).forEach(r => {
+      const icon = r.action==='epic_created'?'+EPIC':r.action==='artifact_created'?'+ART':r.action==='accepted_existing'?'✓MATCH':'=MAP';
+      html += `<div class="art-row"><span class="badge badge-green">${icon}</span><span class="art-id">${escHtml(r.artifact_id||'')}</span><span class="art-title">${escHtml(r.title||r.text||'')}</span>`;
+      if (r.xp) html += `<span class="art-xp">${r.xp} XP</span>`;
+      if (r.type) html += `<span class="art-type">${r.type}</span>`;
+      html += '</div>';
+    });
+    html += `<div style="font-size:13px;color:var(--text-dim);margin-top:6px">${data.total_epics} epics | ${data.total_artifacts} artifacts</div></div>`;
+    addRichMessage('recv', cmd, html); return;
+  }
+
+  // ── FILES BROWSER ──
+  if (cmd === 'files' && data.mode === 'list') {
+    html += `<div class="section"><div class="section-title">📁 FILE BROWSER <span class="badge badge-accent">${data.total} entries</span></div>
+      <div style="font-size:11px;color:var(--text-dim);margin-bottom:4px">STORAGE: <span style="color:var(--phosphor)">${escHtml(data.storage_path || '')}</span></div>
+      <div class="fb-tree">`;
+    for (const e of (data.entries || [])) {
+      const depth = (e.path.match(/\//g) || []).length;
+      const pad = depth * 16;
+      if (e.type === 'dir') {
+        html += `<div class="fb-entry fb-dir" style="padding-left:${8 + pad}px" onclick="sendPayload({cmd:'files',action:'list',path:'${escHtml(e.path)}'})">
+          <span class="fb-icon">📁</span><span class="fb-name">${escHtml(e.name)}/</span></div>`;
+      } else {
+        const sizeStr = e.size > 1024 ? (e.size / 1024).toFixed(1) + ' KB' : e.size + ' B';
+        html += `<div class="fb-entry" style="padding-left:${8 + pad}px" onclick="sendPayload({cmd:'files',action:'read',path:'${escHtml(e.path)}'})">
+          <span class="fb-icon">${e.name.endsWith('.json') ? '📋' : e.name.endsWith('.md') ? '📝' : '📄'}</span>
+          <span class="fb-name">${escHtml(e.name)}</span>
+          <span class="fb-size">${sizeStr}</span></div>`;
+      }
+    }
+    html += `</div></div>`;
+    addRichMessage('recv', cmd, html); return;
+  }
+
+  if (cmd === 'files' && data.mode === 'read') {
+    const isJson = data.is_json;
+    const pathParts = (data.path || '').split('/');
+    // Breadcrumbs
+    html += `<div class="section"><div class="fb-crumb">`;
+    html += `<span onclick="sendPayload({cmd:'files',action:'list'})">📁 root</span>`;
+    let crumbPath = '';
+    for (let i = 0; i < pathParts.length - 1; i++) {
+      crumbPath += (i > 0 ? '/' : '') + pathParts[i];
+      html += ` / <span onclick="sendPayload({cmd:'files',action:'list'})">${escHtml(pathParts[i])}</span>`;
+    }
+    html += ` / <span class="active">${escHtml(pathParts[pathParts.length - 1])}</span></div>`;
+    // Toolbar
+    html += `<div class="fb-toolbar">
+      <span class="fb-path">${escHtml(data.path || '')}</span>
+      <span style="font-size:11px;color:var(--text-dim)">${data.size || 0} bytes</span>
+      <button class="confirm-btn" style="padding:2px 8px;font-size:11px" onclick="sendPayload({cmd:'files',action:'list'})">← BACK</button>
+      <button class="confirm-btn" style="padding:2px 8px;font-size:11px;border-color:var(--cyan);color:var(--cyan)" onclick="openFileEditor('${escHtml(data.path)}')">EDIT</button>
+    </div>`;
+    // Content viewer with line numbers
+    const lines = (data.content || '').split('\\n');
+    const numbered = lines.map((l, i) => `<span class="line-nums">${i + 1}</span>${escHtml(l)}`).join('\\n');
+    html += `<div class="fb-viewer"><pre>${numbered}</pre></div>`;
+    // Hidden editor (shown when EDIT clicked)
+    html += `<div id="fileEditorWrap" style="display:none;margin-top:8px">
+      <textarea class="fb-editor" id="fileEditorContent">${escHtml(data.content || '')}</textarea>
+      <div style="display:flex;gap:6px;margin-top:4px">
+        <button class="confirm-btn" style="padding:4px 12px;background:var(--phosphor);color:var(--bg);border-color:var(--phosphor)" onclick="saveFileEdit('${escHtml(data.path)}')">SAVE</button>
+        <button class="confirm-btn reject" style="padding:4px 12px" onclick="document.getElementById('fileEditorWrap').style.display='none'">CANCEL</button>
+        ${isJson ? '<span style="font-size:11px;color:var(--text-dim);padding:4px">JSON — will be validated before save</span>' : ''}
+      </div>
+    </div>`;
+    html += `</div>`;
+    addRichMessage('recv', cmd, html); return;
+  }
+
+  if (cmd === 'files' && data.mode === 'written') {
+    html += `<div class="section" style="border-color:var(--phosphor)"><div class="section-title" style="color:var(--phosphor)">✅ FILE SAVED</div>
+      <div style="font-size:13px;color:var(--text)">${escHtml(data.path || '')} — ${data.size || 0} bytes</div>
+      <div style="font-size:12px;color:var(--text-dim);margin-top:2px">${escHtml(data.message || '')}</div>
+      <button class="confirm-btn" style="margin-top:6px;padding:2px 8px;font-size:11px" onclick="sendPayload({cmd:'files',action:'read',path:'${escHtml(data.path)}'})">VIEW FILE</button>
+      <button class="confirm-btn" style="margin-top:6px;padding:2px 8px;font-size:11px" onclick="sendPayload({cmd:'files',action:'list'})">← BROWSE</button>
+    </div>`;
+    addRichMessage('recv', cmd, html); return;
+  }
+
+  if (cmd === 'files' && data.mode === 'deleted') {
+    html += `<div class="section" style="border-color:var(--red)"><div class="section-title" style="color:var(--red)">🗑️ FILE DELETED</div>
+      <div style="font-size:13px;color:var(--text)">${escHtml(data.path || '')}</div>
+      <div style="font-size:12px;color:var(--text-dim);margin-top:2px">${escHtml(data.message || '')}</div>
+      <button class="confirm-btn" style="margin-top:6px;padding:2px 8px;font-size:11px" onclick="sendPayload({cmd:'files',action:'list'})">← BROWSE</button>
+    </div>`;
+    addRichMessage('recv', cmd, html); return;
+  }
+
+  if (cmd === 'week') {
+    if (data.empty) {
+      window._planArtifacts = data.open_artifacts || [];
+      window._planAssignments = {};
+      const byEpic = {};
+      (data.open_artifacts||[]).forEach(a => { if (!byEpic[a.epic_id]) byEpic[a.epic_id] = { epic_id:a.epic_id, epic_title:a.epic_title||a.epic_id, artifacts:[] }; byEpic[a.epic_id].artifacts.push(a); });
+      const epicGroups = Object.values(byEpic);
+      html += `<div class="section" style="border-color:var(--amber)"><div class="section-title" style="color:var(--amber)">WEEK ${escHtml(data.week_id||'')} — NO PLAN</div>
+        <div style="font-size:14px;color:var(--text)">Assign artifacts, pick quests, submit.</div></div>`;
+      html += `<div class="section"><div class="section-title">ASSIGN ARTIFACTS</div>
+        <div style="font-size:12px;color:var(--text-dim);margin-bottom:6px">COMMIT / STRETCH / PARK each item</div>
+        <div class="plan-builder" id="pbArtifacts">`;
+      epicGroups.forEach(eg => {
+        html += `<div class="pb-label">${escHtml(eg.epic_id)} — ${escHtml(eg.epic_title)}</div>`;
+        eg.artifacts.forEach(a => {
+          html += `<div class="pb-card" id="pb-${a.artifact_id}"><div class="pb-info">
+            <span class="art-id">${escHtml(a.artifact_id)}</span>
+            <span class="art-title" title="${escHtml(a.title)}">${escHtml(a.title)}</span>
+            <span class="art-xp">${a.xp} XP</span><span class="art-type">${a.type}</span>
+          </div><div class="pb-radio-group">
+            <button class="pb-radio" data-aid="${a.artifact_id}" data-role="committed" onclick="assignArtifact(this)">C</button>
+            <button class="pb-radio" data-aid="${a.artifact_id}" data-role="stretch" onclick="assignArtifact(this)">S</button>
+            <button class="pb-radio" data-aid="${a.artifact_id}" data-role="parked" onclick="assignArtifact(this)">P</button>
+          </div></div>`;
+        });
+      });
+      html += `</div></div>`;
+      html += `<div class="section" style="border-color:var(--cyan)"><div class="section-title" style="color:var(--cyan)">QUESTS (2 MAX)</div>
+        <div style="font-size:12px;color:var(--text-dim);margin-bottom:6px">Epic + Friday finish line artifact</div>`;
+      for (let q = 1; q <= 2; q++) {
+        html += `<div class="pb-quest-row"><span class="quest-badge">Q${q}</span>
+          <select class="pb-select" id="quest${q}Epic" onchange="updateQuestArtifacts(${q})"><option value="">— Epic —</option>
+          ${epicGroups.map(eg => `<option value="${eg.epic_id}">${eg.epic_id} — ${escHtml(eg.epic_title)}</option>`).join('')}</select>
+          <select class="pb-select" id="quest${q}Art"><option value="">— Finish Line —</option></select></div>`;
+      }
+      html += `</div><div class="section"><div class="pb-submit-bar">
+        <button class="pb-submit-btn" onclick="submitPlanForm()">SUBMIT PLAN</button>
+        <span class="pb-hint">C:<b id="pbCountC">0</b> S:<b id="pbCountS">0</b> P:<b id="pbCountP">0</b></span>
+      </div></div>`;
+      addRichMessage('recv', cmd, html); return;
+    }
+    html += questsSection(data.quests);
+    html += movesSection(data.moves);
+    if (data.pace) html += paceSection(data.pace, false);
+    html += enrichedArtifactSection('COMMITTED', data.committed, 'badge-green');
+    html += enrichedArtifactSection('STRETCH', data.stretch, 'badge-yellow');
+    html += enrichedArtifactSection('PARKED', data.parked, 'badge-accent');
+    if (data.pings_due?.length > 0) html += pingsSection(data.pings_due);
+    addRichMessage('recv', cmd, html); return;
+  }
+
+  if (cmd === 'status') {
+    html += `<div style="color:var(--phosphor-bright);text-shadow:var(--glow);font-size:16px;margin-bottom:2px">${data.title || 'WEEKLY PORTFOLIO PULSE'}</div>`;
+    html += `<div style="font-size:13px;color:var(--text-dim);margin-bottom:8px">${data.date} | ${data.week_id}</div>`;
+    if (data.pace) html += paceSection(data.pace, false);
+    if (data.xp_earned_last_week > 0) html += xpBar(data.xp_earned_last_week, 'LAST WEEK');
+    html += `<div class="section"><div class="section-title">ACTIVE EPICS</div>`;
+    (data.active_epics||[]).forEach(e => { html += `<div class="art-row"><span class="art-id">${escHtml(e.epic_id)}</span><span class="art-title">${escHtml(e.title)}</span><span class="badge badge-green">${e.progress}</span></div>`; });
+    html += '</div>';
+    if (data.shipped_last_week?.length > 0) {
+      html += `<div class="section"><div class="section-title">SHIPPED <span class="badge badge-green">${data.shipped_last_week.length}</span></div>`;
+      data.shipped_last_week.forEach(s => { html += `<div class="art-row"><span class="art-id">${escHtml(s.artifact_id)}</span><span class="art-title">${escHtml(s.title)}</span><span class="art-xp">${s.xp} XP</span></div>`; });
+      html += '</div>';
+    }
+    if (data.committed_artifacts_ryg?.length > 0) {
+      html += `<div class="section"><div class="section-title">RYG STATUS</div>`;
+      data.committed_artifacts_ryg.forEach(a => {
+        const rc = a.ryg==='green'?'badge-green':a.ryg==='yellow'?'badge-yellow':'badge-red';
+        html += `<div class="art-row"><span class="badge ${rc}">${(a.ryg||'?').toUpperCase()}</span><span class="art-id">${escHtml(a.artifact_id)}</span><span class="art-title">${escHtml(a.title)}</span><span style="font-size:12px;color:var(--text-dim)">${escHtml(a.mitigation||'')}</span></div>`;
+      });
+      html += '</div>';
+    }
+    if (data.dependencies?.length > 0) html += depsSection(data.dependencies);
+    html += questsSection(data.quests);
+    html += movesSection(data.moves);
+    addRichMessage('recv', cmd, html); return;
+  }
+
+  if (cmd === 'wrapup' && data.mode === 'select') {
+    // Group artifacts by epic for clarity
+    const byEpic = {};
+    (data.active_artifacts||[]).forEach(a => {
+      const eid = a.epic_id || 'unknown';
+      if (!byEpic[eid]) byEpic[eid] = { epic_id: eid, epic_title: a.epic_title || eid, artifacts: [] };
+      byEpic[eid].artifacts.push(a);
+    });
+    const epicGroups = Object.values(byEpic);
+
+    html += `<div class="section"><div class="section-title">SHIP ARTIFACTS <span class="badge badge-accent">${data.active_count} active</span></div>
+      <div style="font-size:12px;color:var(--text-dim);margin-bottom:8px">Click artifacts you shipped today, then press SHIP.</div>`;
+
+    epicGroups.forEach(eg => {
+      html += `<div style="color:var(--text-dim);font-size:12px;letter-spacing:2px;text-transform:uppercase;margin:10px 0 4px;padding:2px 4px;border-bottom:1px solid var(--border)">${escHtml(eg.epic_id)} — ${escHtml(eg.epic_title)}</div>`;
+      eg.artifacts.forEach(a => {
+        html += `<div class="art-row" style="cursor:pointer" onclick="toggleShip(this,'${a.artifact_id}')">
+          <span class="art-status status-${a.status}">${a.status}</span>
+          <span class="art-id">${escHtml(a.artifact_id)}</span>
+          <span class="art-title">${escHtml(a.title)}</span>
+          <span class="art-xp">${a.xp} XP</span>
+          <span class="art-type">${a.type}</span>
+        </div>`;
+      });
+    });
+
+    html += `</div><div style="margin-top:6px"><button class="confirm-btn" style="background:var(--phosphor);color:var(--bg)" onclick="submitShips()">SHIP SELECTED</button></div>`;
+    addRichMessage('recv', cmd, html); return;
+  }
+
+  if (cmd === 'wrapup' && data.mode === 'completed') {
+    if (data.xp_earned_today > 0) html += xpBar(data.xp_earned_today, 'TODAY', data.xp_total);
+    if (data.epic_bonuses?.length > 0) {
+      html += `<div class="section" style="border-color:var(--amber)"><div class="section-title" style="color:var(--amber);text-shadow:0 0 8px var(--amber-dim)">★ EPIC COMPLETE! ★</div>`;
+      data.epic_bonuses.forEach(b => {
+        html += `<div class="art-row"><span class="badge badge-yellow">+${b.bonus_xp} XP</span><span class="art-title" style="color:var(--amber)">${escHtml(b.epic_title || b.epic_id)}</span><span style="font-size:12px;color:var(--text-dim)">All artifacts shipped — bonus awarded</span></div>`;
+      });
+      html += '</div>';
+    }
+    if (data.pace) html += paceSection(data.pace, true);
+    if (data.ships?.length > 0) {
+      html += `<div class="section"><div class="section-title">SHIPPED</div>`;
+      data.ships.filter(s=>s.action==='shipped').forEach(s => { html += `<div class="art-row"><span class="art-id">${escHtml(s.artifact_id)}</span><span class="art-title">${escHtml(s.title||'')}</span><span class="art-xp">+${s.xp} XP</span><span class="art-type">${s.type||''}</span></div>`; });
+      html += '</div>';
+    }
+    if (data.remaining_count > 0) {
+      html += `<div class="section"><div class="section-title">CARRY FORWARD <span class="badge badge-accent">${data.remaining_count}</span></div>`;
+      (data.remaining_open||[]).forEach(r => { html += `<div class="art-row"><span class="art-status status-${r.status}">${r.status}</span><span class="art-id">${escHtml(r.artifact_id)}</span><span class="art-title">${escHtml(r.title)}</span></div>`; });
+      html += '</div>';
+    }
+    if (data.open_dependencies?.length > 0) html += pingsSection(data.open_dependencies);
+    addRichMessage('recv', cmd, html); return;
+  }
+
+  if (cmd === 'debug') {
+    html += `<div class="section"><div class="section-title">DEBUG <span class="badge badge-accent">${data.key_count} keys</span> <span class="badge badge-cyan">${data.backup_count} bak</span></div>`;
+    if (data.storage_path) html += `<div style="font-size:13px;margin-bottom:6px">STORAGE: <span style="color:var(--phosphor-bright);text-shadow:var(--glow)">${escHtml(data.storage_path)}</span></div>`;
+    if (data.path_probe) {
+      html += `<div style="font-size:12px;color:var(--text-dim);letter-spacing:2px;margin:6px 0 4px">PATH PROBE</div>`;
+      for (const [p, info] of Object.entries(data.path_probe)) {
+        const ok = info.exists && info.writable;
+        const color = ok ? 'var(--phosphor)' : info.exists ? 'var(--amber)' : 'var(--red)';
+        const status = ok ? 'RW' : info.exists ? 'RO' : 'N/A';
+        html += `<div class="art-row"><span class="badge" style="border-color:${color};color:${color};min-width:28px;text-align:center">${status}</span><span class="art-title" style="color:${color}">${escHtml(p)}</span></div>`;
+      }
+    }
+    (data.keys||[]).forEach(k => { html += `<div style="font-size:13px;color:var(--text-dim);padding:1px 0">${escHtml(k)}</div>`; });
+    html += '</div>';
+    addRichMessage('recv', cmd, html); return;
+  }
+
+  // ═══ OPS PINGS ALERT (shown on startup) ═══
+  if (cmd === 'ops' && data.mode === 'pings') {
+    if (data.total_overdue === 0) return; // silent if nothing overdue
+    html += `<div class="section" style="border-color:var(--red);background:rgba(255,51,51,0.04)"><div class="section-title" style="color:var(--red)">🔴 OVERDUE PINGS — ${data.date || 'TODAY'}</div>`;
+    (data.ops_overdue || []).forEach(o => {
+      html += `<div class="art-row"><span class="badge badge-red">OPS</span><span class="art-id">${escHtml(o.id)}</span><span class="art-title">${escHtml(o.text)}</span><span style="font-size:12px;color:var(--red)">← ${escHtml(o.waiting_on||'?')} (${o.ping_date})</span>
+        <button class="confirm-btn" style="margin-left:auto;padding:2px 8px;font-size:11px" onclick="markOpsDone('${o.id}')">DONE</button>
+        <button class="confirm-btn" style="padding:2px 8px;font-size:11px;border-color:var(--amber);color:var(--amber)" onclick="promptSetPing('${o.id}','${escHtml((o.waiting_on||'').replace(/'/g,"\\'"))}')">REPING</button>
+      </div>`;
+    });
+    (data.artifact_overdue || []).forEach(a => {
+      html += `<div class="art-row"><span class="badge badge-yellow">ART</span><span class="art-id">${escHtml(a.artifact_id)}</span><span class="art-title">${escHtml(a.title)}</span><span style="font-size:12px;color:var(--red)">← ${escHtml(a.waiting_on||'?')} (${a.ping_date})</span></div>`;
+    });
+    html += '</div>';
+    addRichMessage('recv', 'pings', html); return;
+  }
+
+  // ═══ OPS VIEW RENDERER ═══
+  if (cmd === 'ops' && data.mode === 'view') {
+    const ops = data.ops || {};
+    const mast = data.mastery || {};
+
+    // Store for reorder
+    window._opsItems = [...(ops.overdue||[]), ...(ops.waiting||[]), ...(ops.open_no_ping||[]), ...(ops.done_this_week||[])];
+    window._opsOpenIds = [...(ops.overdue||[]).map(o=>o.id), ...(ops.waiting||[]).map(o=>o.id), ...(ops.open_no_ping||[]).map(o=>o.id)];
+    window._mastItems = [...(mast.open||[]), ...(mast.done_this_week||[])];
+    window._mastOpenIds = (mast.open||[]).map(m=>m.id);
+    window._opsDirty = false;
+    window._mastDirty = false;
+
+    html += `<div class="section" style="border-color:var(--cyan)"><div class="section-title" style="color:var(--cyan)">OPS / ADMIN LOG</div>
+      <div style="font-size:12px;color:var(--text-dim);margin-bottom:6px">Drag ⠿ to reorder · DEL to remove · Save order when done</div>`;
+
+    // Overdue pings
+    if ((ops.overdue || []).length > 0) {
+      html += `<div style="color:var(--red);font-size:11px;letter-spacing:2px;margin:6px 0 4px">🔴 OVERDUE (${ops.overdue_count})</div>`;
+      (ops.overdue || []).forEach(o => {
+        html += `<div class="manage-row" draggable="true" data-ops-id="${o.id}" data-drag-type="ops"
+               ondragstart="mgrDragStart(event,'ops')" ondragover="mgrDragOver(event)" ondragleave="mgrDragLeave(event)" ondrop="mgrDrop(event,'ops')"
+               style="border-left:2px solid var(--red);padding-left:6px" id="ops-${o.id}">
+          <span class="drag-handle">⠿</span>
+          <div class="mr-info">
+            <span class="art-status" style="color:var(--red)">PING!</span>
+            <span class="art-id">${escHtml(o.id)}</span>
+            <span class="art-title">${escHtml(o.text)}</span>
+            <span style="font-size:12px;color:var(--red)">← ${escHtml(o.waiting_on||'?')} (${o.ping_date})</span>
+          </div>
+          <div class="mr-actions">
+            <button class="confirm-btn" style="padding:2px 8px;font-size:11px" onclick="markOpsDone('${o.id}')">DONE</button>
+            <button class="confirm-btn" style="padding:2px 8px;font-size:11px;border-color:var(--amber);color:var(--amber)" onclick="promptSetPing('${o.id}','${escHtml((o.waiting_on||'').replace(/'/g,"\\'"))}')">REPING</button>
+            <button class="delete-btn" onclick="confirmDeleteOps('${o.id}','${escHtml((o.text||'').replace(/'/g,"\\'"))}')">DEL</button>
+          </div>
+        </div>`;
+      });
+    }
+
+    // Waiting (future pings)
+    if ((ops.waiting || []).length > 0) {
+      html += `<div style="color:var(--amber);font-size:11px;letter-spacing:2px;margin:8px 0 4px">⏳ WAITING FOR (${ops.waiting_count})</div>`;
+      (ops.waiting || []).forEach(o => {
+        html += `<div class="manage-row" draggable="true" data-ops-id="${o.id}" data-drag-type="ops"
+               ondragstart="mgrDragStart(event,'ops')" ondragover="mgrDragOver(event)" ondragleave="mgrDragLeave(event)" ondrop="mgrDrop(event,'ops')"
+               id="ops-${o.id}">
+          <span class="drag-handle">⠿</span>
+          <div class="mr-info">
+            <span class="art-status" style="color:var(--amber)">wait</span>
+            <span class="art-id">${escHtml(o.id)}</span>
+            <span class="art-title">${escHtml(o.text)}</span>
+            <span style="font-size:12px;color:var(--amber)">← ${escHtml(o.waiting_on||'?')} (ping ${o.ping_date})</span>
+          </div>
+          <div class="mr-actions">
+            <button class="confirm-btn" style="padding:2px 8px;font-size:11px" onclick="markOpsDone('${o.id}')">DONE</button>
+            <button class="delete-btn" onclick="confirmDeleteOps('${o.id}','${escHtml((o.text||'').replace(/'/g,"\\'"))}')">DEL</button>
+          </div>
+        </div>`;
+      });
+    }
+
+    // Plain open (no ping)
+    if ((ops.open_no_ping || []).length > 0) {
+      html += `<div style="color:var(--text-dim);font-size:11px;letter-spacing:2px;margin:8px 0 4px">OPEN TASKS (${ops.open_no_ping_count})</div>`;
+      (ops.open_no_ping || []).forEach(o => {
+        html += `<div class="manage-row" draggable="true" data-ops-id="${o.id}" data-drag-type="ops"
+               ondragstart="mgrDragStart(event,'ops')" ondragover="mgrDragOver(event)" ondragleave="mgrDragLeave(event)" ondrop="mgrDrop(event,'ops')"
+               id="ops-${o.id}">
+          <span class="drag-handle">⠿</span>
+          <div class="mr-info">
+            <span class="art-status status-open">open</span>
+            <span class="art-id">${escHtml(o.id)}</span>
+            <span class="art-title">${escHtml(o.text)}</span>
+          </div>
+          <div class="mr-actions">
+            <button class="confirm-btn" style="padding:2px 8px;font-size:11px;border-color:var(--amber);color:var(--amber)" onclick="promptSetPing('${o.id}','')">SET PING</button>
+            <button class="confirm-btn" style="padding:2px 8px;font-size:11px" onclick="markOpsDone('${o.id}')">DONE</button>
+            <button class="delete-btn" onclick="confirmDeleteOps('${o.id}','${escHtml((o.text||'').replace(/'/g,"\\'"))}')">DEL</button>
+          </div>
+        </div>`;
+      });
+    }
+
+    if (ops.open_count === 0) {
+      html += `<div style="color:var(--text-dim);margin:6px 0">No open ops tasks ✓</div>`;
+    }
+
+    if ((ops.done_this_week || []).length > 0) {
+      html += `<div style="color:var(--text-dim);font-size:11px;letter-spacing:2px;margin:10px 0 4px">DONE THIS WEEK (${ops.done_this_week_count})</div>`;
+      (ops.done_this_week || []).forEach(o => {
+        html += `<div class="art-row"><span class="art-status status-shipped">done</span><span class="art-id" style="text-decoration:line-through">${escHtml(o.id)}</span><span class="art-title" style="color:var(--text-dim);text-decoration:line-through">${escHtml(o.text)}</span><span style="font-size:12px;color:var(--text-dim)">${o.completed_at || ''}</span></div>`;
+      });
+    }
+    html += `<div style="font-size:12px;color:var(--text-dim);margin-top:8px">Total: ${ops.total_done || 0} done / ${ops.total || 0} all time</div>`;
+    html += `<div class="manage-toolbar">
+        <button class="manage-save-btn" id="opsSaveBtn" onclick="submitOpsReorder()" disabled>SAVE ORDER</button>
+        <button class="confirm-btn" onclick="promptAddOps()" style="margin-left:auto">+ ADD OPS</button>
+      </div>`;
+    html += '</div>';
+
+    // ── MASTERY SECTION ──
+    html += `<div class="section" style="border-color:var(--amber)"><div class="section-title" style="color:var(--amber)">MASTERY LOG</div>
+      <div style="font-size:12px;color:var(--text-dim);margin-bottom:6px">Drag ⠿ to reorder · DEL to remove</div>`;
+
+    if ((mast.open || []).length > 0) {
+      html += `<div style="color:var(--text-dim);font-size:11px;letter-spacing:2px;margin:6px 0 4px">OPEN ITEMS (${mast.open_count})</div>`;
+      (mast.open || []).forEach(m => {
+        html += `<div class="manage-row" draggable="true" data-mast-id="${m.id}" data-drag-type="mastery"
+               ondragstart="mgrDragStart(event,'mastery')" ondragover="mgrDragOver(event)" ondragleave="mgrDragLeave(event)" ondrop="mgrDrop(event,'mastery')"
+               id="mast-${m.id}">
+          <span class="drag-handle">⠿</span>
+          <div class="mr-info">
+            <span class="art-status status-open">open</span>
+            <span class="art-id">${escHtml(m.id)}</span>
+            <span class="art-title">${escHtml(m.text)}</span>
+          </div>
+          <div class="mr-actions">
+            <button class="confirm-btn" style="padding:2px 8px;font-size:12px" onclick="markMasteryDone('${m.id}')">DONE</button>
+            <button class="delete-btn" onclick="confirmDeleteMastery('${m.id}','${escHtml((m.text||'').replace(/'/g,"\\'"))}')">DEL</button>
+          </div>
+        </div>`;
+      });
+    } else {
+      html += `<div style="color:var(--text-dim);margin:6px 0">No open mastery tasks ✓</div>`;
+    }
+    if ((mast.done_this_week || []).length > 0) {
+      html += `<div style="color:var(--text-dim);font-size:11px;letter-spacing:2px;margin:10px 0 4px">DONE THIS WEEK (${mast.done_this_week_count})</div>`;
+      (mast.done_this_week || []).forEach(m => {
+        html += `<div class="art-row"><span class="art-status status-shipped">done</span><span class="art-id" style="text-decoration:line-through">${escHtml(m.id)}</span><span class="art-title" style="color:var(--text-dim);text-decoration:line-through">${escHtml(m.text)}</span></div>`;
+      });
+    }
+    html += `<div style="font-size:12px;color:var(--text-dim);margin-top:8px">Total: ${mast.total_done || 0} done / ${mast.total || 0} all time</div>`;
+    html += `<div class="manage-toolbar">
+        <button class="manage-save-btn" id="mastSaveBtn" onclick="submitMastReorder()" disabled>SAVE ORDER</button>
+        <button class="confirm-btn" onclick="promptAddMastery()" style="margin-left:auto">+ ADD MASTERY</button>
+      </div>`;
+    html += '</div>';
+
+    addRichMessage('recv', cmd, html); return;
+  }
+
+  if (cmd === 'ops' && (data.mode === 'added' || data.mode === 'completed' || data.mode === 'mastery_added' || data.mode === 'mastery_completed' || data.mode === 'ping_set' || data.mode === 'deleted' || data.mode === 'reordered' || data.mode === 'mastery_deleted' || data.mode === 'mastery_reordered')) {
+    // After any ops mutation, re-fetch the full view
+    if (data.markdown) {
+      addRichMessage('recv', cmd, '<div class="section">' + mdToHtml(data.markdown) + '</div>');
+    }
+    // Auto-refresh the ops view
+    setTimeout(() => sendPayload({ cmd: 'ops' }), 300);
+    return;
+  }
+
+  // ═══ EDIT / MANAGE RENDERER ═══
+  if (cmd === 'edit' && data.mode === 'select') {
+    window._manageEpics = data.epics || [];
+    window._manageEpicOrder = (data.epics||[]).map(e => e.epic_id);
+    window._manageArtOrders = {};
+    (data.epics||[]).forEach(e => { window._manageArtOrders[e.epic_id] = (e.artifacts||[]).map(a => a.artifact_id); });
+    window._manageDirty = false;
+
+    html += `<div class="section" style="border-color:var(--cyan)"><div class="section-title" style="color:var(--cyan)">MANAGE EPICS & ARTIFACTS</div>
+      <div style="font-size:13px;color:var(--text-dim);margin-bottom:8px">Drag ⠿ to reorder · click title to rename · DEL to delete · Save when done</div>`;
+
+    html += `<div id="manageEpicList">`;
+    (data.epics||[]).forEach((e, ei) => {
+      const safeTitle = escHtml((e.title||'').replace(/'/g,"\\'"));
+      html += `<div class="manage-group" id="mgrp-${e.epic_id}">
+        <div class="manage-row" draggable="true" data-epic-id="${e.epic_id}" data-drag-type="epic"
+             ondragstart="mgrDragStart(event,'epic')" ondragover="mgrDragOver(event)" ondragleave="mgrDragLeave(event)" ondrop="mgrDrop(event,'epic')">
+          <span class="drag-handle" title="Drag to reorder">⠿</span>
+          <div class="mr-info">
+            <span class="art-id" style="color:var(--phosphor-bright);text-shadow:var(--glow)">${escHtml(e.epic_id)}</span>
+            <span class="art-title" style="color:var(--phosphor-bright);cursor:pointer" onclick="promptEditEpic('${e.epic_id}','${safeTitle}')">${escHtml(e.title)}</span>
+            <span class="badge badge-accent">${e.status}</span>
+          </div>
+          <div class="mr-actions">
+            <span style="font-size:11px;color:var(--text-dim)">${(e.artifacts||[]).length} arts</span>
+          </div>
+        </div>`;
+
+      html += `<div class="manage-art-list" id="marts-${e.epic_id}" style="padding-left:12px">`;
+      (e.artifacts||[]).forEach((a, ai) => {
+        const safeTitleA = escHtml((a.title||'').replace(/'/g,"\\'"));
+        const isShipped = a.status === 'shipped';
+        html += `<div class="manage-row" draggable="true" data-artifact-id="${a.artifact_id}" data-epic-id="${e.epic_id}" data-drag-type="artifact"
+               ondragstart="mgrDragStart(event,'artifact')" ondragover="mgrDragOver(event)" ondragleave="mgrDragLeave(event)" ondrop="mgrDrop(event,'artifact')"
+               ${isShipped ? 'style="opacity:0.5"' : ''}>
+            <span class="drag-handle" title="Drag to reorder">⠿</span>
+            <div class="mr-info">
+              <span class="art-status status-${a.status}">${a.status}</span>
+              <span class="art-id" style="font-size:12px">${escHtml(a.artifact_id)}</span>
+              <span class="art-title" style="cursor:pointer" onclick="promptEditArtifact('${a.artifact_id}','${safeTitleA}')">${escHtml(a.title)}</span>
+              <span class="art-xp">${a.xp} XP</span>
+              <span class="art-type">${a.type}</span>
+            </div>
+            <div class="mr-actions">
+              <button class="rename-btn" onclick="promptEditArtifact('${a.artifact_id}','${safeTitleA}')">REN</button>
+              ${isShipped ? '' : `<button class="delete-btn" onclick="confirmDeleteArtifact('${a.artifact_id}','${safeTitleA}','${e.epic_id}')">DEL</button>`}
+            </div>
+          </div>`;
+      });
+      html += `</div></div>`;
+    });
+    html += `</div>`;
+
+    html += `<div class="manage-toolbar">
+        <button class="manage-save-btn" id="mgrSaveBtn" onclick="submitManageReorder()" disabled>SAVE ORDER</button>
+        <span class="manage-hint" id="mgrHint">Drag items to reorder, then save</span>
+      </div>`;
+    html += '</div>';
+    addRichMessage('recv', cmd, html); return;
+  }
+
+  // ═══ EDIT MUTATION RENDERERS ═══
+  if (cmd === 'edit' && data.mode === 'deleted_artifact') {
+    html += `<div class="section" style="border-color:var(--red)"><div class="section-title" style="color:var(--red)">🗑️ ARTIFACT DELETED</div>
+      <div class="art-row"><span class="art-id">${escHtml(data.artifact_id||'')}</span><span class="art-title" style="text-decoration:line-through;color:var(--red-dim)">${escHtml(data.title||'')}</span><span style="font-size:12px;color:var(--text-dim)">from ${escHtml(data.epic_id||'')}</span></div></div>`;
+    addRichMessage('recv', cmd, html);
+    setTimeout(() => sendPayload({ cmd: 'edit' }), 400);
+    return;
+  }
+
+  if (cmd === 'edit' && (data.mode === 'reordered_artifacts' || data.mode === 'reordered_epics' || data.mode === 'reordered_all')) {
+    html += `<div class="section" style="border-color:var(--phosphor)"><div class="section-title" style="color:var(--phosphor)">✅ ORDER SAVED</div>
+      <div style="font-size:14px;color:var(--text)">${escHtml(data.message||'')}</div></div>`;
+    addRichMessage('recv', cmd, html);
+    setTimeout(() => sendPayload({ cmd: 'edit' }), 400);
+    return;
+  }
+
+  if (cmd === 'edit' && data.mode === 'applied') {
+    html += `<div class="section"><div class="section-title">RENAME APPLIED</div>`;
+    (data.changes||[]).forEach(c => {
+      const icon = c.type === 'epic_renamed' ? 'EPIC' : 'ART';
+      html += `<div class="art-row"><span class="badge badge-green">${icon}</span>
+        <span class="art-id">${escHtml(c.epic_id || c.artifact_id || '')}</span>
+        <span style="color:var(--red);text-decoration:line-through;font-size:13px">${escHtml(c.old_title)}</span>
+        <span style="color:var(--phosphor-bright)">&rarr; ${escHtml(c.new_title)}</span>
+      </div>`;
+    });
+    html += '</div>';
+    addRichMessage('recv', cmd, html);
+    setTimeout(() => sendPayload({ cmd: 'edit' }), 400);
+    return;
+  }
+
+  // ═══ SWAP RENDERER ═══
+  if (cmd === 'swap' && data.mode === 'select') {
+    window._swapMoves = data.current_moves || [];
+    window._swapArts = data.available_artifacts || [];
+    html += `<div class="section" style="border-color:var(--amber)"><div class="section-title" style="color:var(--amber)">SWAP RULE</div>
+      <div style="font-size:13px;color:var(--text-dim);margin-bottom:8px">New work must REPLACE an existing Move. Select which move to remove and which artifact to swap in.</div>
+
+      <div class="pb-label">CURRENT MOVES (pick one to remove)</div>`;
+    (data.current_moves||[]).forEach((m, mi) => {
+      html += `<div class="pb-card" id="swap-move-${mi}" style="cursor:pointer" onclick="selectSwapMove('${m.move_id}',${mi})">
+        <div class="pb-info">
+          <span class="badge badge-accent">${m.move_id}</span>
+          <span class="art-title">${escHtml(m.description)}</span>`;
+      (m.linked_artifacts||[]).forEach(a => {
+        html += `<span class="art-xp" style="font-size:12px">${escHtml(a.title)} (${a.xp}XP)</span>`;
+      });
+      html += `</div><div class="pb-radio-group">
+          <button class="pb-radio" style="border-color:var(--red);color:var(--red)">REMOVE</button>
+        </div></div>`;
+    });
+
+    html += `<div class="pb-label" style="margin-top:12px">AVAILABLE ARTIFACTS (pick one to swap in)</div>`;
+    const swapByEpic = {};
+    (data.available_artifacts||[]).forEach(a => {
+      if (!swapByEpic[a.epic_id]) swapByEpic[a.epic_id] = { epic_title: a.epic_title || a.epic_id, arts: [] };
+      swapByEpic[a.epic_id].arts.push(a);
+    });
+    Object.entries(swapByEpic).forEach(([eid, eg]) => {
+      html += `<div style="color:var(--text-dim);font-size:11px;letter-spacing:2px;margin:6px 0 2px">${escHtml(eid)} — ${escHtml(eg.epic_title)}</div>`;
+      eg.arts.forEach((a, ai) => {
+        html += `<div class="pb-card" id="swap-art-${a.artifact_id}" style="cursor:pointer" onclick="selectSwapArt('${a.artifact_id}')">
+          <div class="pb-info">
+            <span class="art-status status-${a.status}">${a.status}</span>
+            <span class="art-id">${escHtml(a.artifact_id)}</span>
+            <span class="art-title">${escHtml(a.title)}</span>
+            <span class="art-xp">${a.xp} XP</span>
+            <span class="art-type">${a.type}</span>
+          </div>
+        </div>`;
+      });
+    });
+
+    html += `<div class="pb-submit-bar" style="margin-top:10px">
+      <button class="pb-submit-btn" onclick="executeSwap()">EXECUTE SWAP</button>
+      <span class="pb-hint" id="swapHint">Select a move and an artifact</span>
+    </div></div>`;
+    addRichMessage('recv', cmd, html); return;
+  }
+
+  if (cmd === 'swap' && data.mode === 'completed') {
+    html += `<div class="section" style="border-color:var(--amber)"><div class="section-title" style="color:var(--amber)">SWAP EXECUTED</div>`;
+    html += `<div style="margin:6px 0"><span style="color:var(--red)">REMOVED:</span> ${escHtml(data.old_move?.description || '')}</div>`;
+    html += `<div style="margin:6px 0"><span style="color:var(--phosphor-bright);text-shadow:var(--glow)">SWAPPED IN:</span> ${escHtml(data.new_move?.description || '')} <span class="art-xp">${data.new_move?.xp || 0} XP</span></div>`;
+    if (data.parked_artifacts?.length > 0) {
+      html += `<div style="margin:6px 0;color:var(--text-dim)">PARKED: ${data.parked_artifacts.map(a => escHtml(a.title)).join(', ')}</div>`;
+    }
+    html += `<div style="font-size:13px;color:var(--text-dim);margin-top:6px">${escHtml(data.message||'')}</div></div>`;
+    addRichMessage('recv', cmd, html); return;
+  }
+
+  // ═══ UNIVERSAL FALLBACK: markdown first, JSON never ═══
+  if (data.markdown) {
+    addRichMessage('recv', cmd, '<div class="section">' + mdToHtml(data.markdown) + '</div>');
+  } else if (data.message) {
+    addRichMessage('recv', cmd, '<div class="section"><div class="section-title">/' + escHtml(cmd) + '</div><div>' + escHtml(data.message) + '</div></div>');
+  } else {
+    // Last resort — this should never happen since engine always adds markdown
+    addRichMessage('recv', cmd, '<div class="section"><div class="section-title">/' + escHtml(cmd) + '</div><div style="color:var(--text-dim);font-size:13px">Response received. Open F12 console for details.</div></div>');
+    console.log('[PQL] No markdown or message in response:', data);
+  }
+
+  } catch(renderErr) {
+    // Rich renderer crashed — ALWAYS recover with markdown, never show JSON
+    console.error('[PQL] Renderer crashed for /' + cmd + ':', renderErr.message, renderErr.stack);
+    if (data.markdown) {
+      addRichMessage('recv', cmd, '<div class="section">' + mdToHtml(data.markdown) + '</div>');
+    } else if (data.message) {
+      addRichMessage('recv', cmd, '<div class="section"><div class="section-title">/' + escHtml(cmd) + '</div><div>' + escHtml(data.message) + '</div></div>');
+    } else {
+      addRichMessage('recv', cmd, '<div class="section"><div class="section-title" style="color:var(--red)">/' + escHtml(cmd) + '</div><div style="color:var(--red-dim);font-size:12px">' + escHtml(renderErr.message) + '</div></div>');
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+// HELPER RENDERERS
+// ═══════════════════════════════════════════════════════
+function artRow(a, showAging, showDep) {
+  if (!a) return '';
+  let h = `<div class="art-row"><span class="art-status status-${a.status||'open'}">${a.status||'?'}</span><span class="art-id">${escHtml(a.artifact_id||'')}</span><span class="art-title">${escHtml(a.title||'')}</span><span class="art-xp">${a.xp||0} XP</span><span class="art-type">${a.type||''}</span>`;
+  if (showAging && a.aging_reason) h += `<span class="badge badge-yellow">${a.aging_reason==='not_touched_5d'?'5D STALE':'PING!'}</span>`;
+  if (showDep && a.dependency?.exists) h += `<span class="badge badge-red">DEP:${escHtml(a.dependency.waiting_on||'?')}</span>`;
+  return h + '</div>';
+}
+function artRowSimple(a) { if (!a) return ''; return `<div class="art-row"><span class="art-status status-${a.status||'open'}">${a.status||'?'}</span><span class="art-id">${escHtml(a.artifact_id||'')}</span><span class="art-title">${escHtml(a.title||'')}</span></div>`; }
+function questsSection(quests) {
+  if (!quests?.length) return '';
+  let h = `<div class="section"><div class="section-title">QUESTS <span class="badge badge-cyan">${quests.length}</span></div>`;
+  quests.forEach(q => { if (!q) return; h += `<div class="art-row"><span class="badge badge-cyan">${escHtml(q.quest_id||'')}</span><span class="art-id">${escHtml(q.epic_id||'')}</span><span class="art-title">FRIDAY: ${escHtml(q.friday_finishline_artifact_id||'')}</span></div>`; });
+  return h + '</div>';
+}
+function movesSection(moves) {
+  if (!moves?.length) return '';
+  let h = `<div class="section"><div class="section-title">MOVES <span class="badge badge-accent">${moves.length}</span></div>`;
+  moves.forEach(m => { if (!m) return; h += `<div class="art-row"><span class="badge badge-accent">${escHtml(m.move_id||'')}</span><span class="art-title">${escHtml(m.description||'')}</span></div>`; });
+  return h + '</div>';
+}
+function artifactListSection(title, ids, bc) {
+  if (!ids?.length) return '';
+  let h = `<div class="section"><div class="section-title">${escHtml(title)} <span class="badge ${bc}">${ids.length}</span></div>`;
+  ids.forEach(id => { h += `<div class="art-row"><span class="art-id">${escHtml(id)}</span></div>`; });
+  return h + '</div>';
+}
+function enrichedArtifactSection(title, arts, bc) {
+  if (!arts?.length) return '';
+  let h = `<div class="section"><div class="section-title">${escHtml(title)} <span class="badge ${bc}">${arts.length}</span></div>`;
+  arts.forEach(a => { if (!a) return; h += `<div class="art-row"><span class="art-status status-${a.status||'open'}">${a.status||'?'}</span><span class="art-id">${escHtml(a.artifact_id||'')}</span><span class="art-title">${escHtml(a.title||'')}</span><span class="art-xp">${a.xp||0} XP</span><span class="art-type">${a.type||''}</span></div>`; });
+  return h + '</div>';
+}
+function pingsSection(pings) {
+  let h = `<div class="section" style="border-color:var(--red)"><div class="section-title" style="color:var(--red)">PINGS DUE <span class="badge badge-red">${pings.length}</span></div>`;
+  pings.forEach(p => { h += `<div class="art-row"><span class="art-id">${escHtml(p.artifact_id)}</span><span class="art-title">${escHtml(p.waiting_on||'')}</span><span class="badge badge-red">${escHtml(p.ping_date||'')}</span></div>`; });
+  return h + '</div>';
+}
+function depsSection(deps) {
+  let h = `<div class="section" style="border-color:var(--amber)"><div class="section-title" style="color:var(--amber)">DEPENDENCIES <span class="badge badge-yellow">${deps.length}</span></div>`;
+  deps.forEach(d => { h += `<div class="art-row"><span class="art-id">${escHtml(d.artifact_id)}</span><span class="art-title">WAITING:${escHtml(d.waiting_on||'?')}</span><span class="badge badge-yellow">${escHtml(d.ping_date||'')}</span></div>`; });
+  return h + '</div>';
+}
+function xpBar(xp, label, total) {
+  const pct = total ? Math.min((xp/total)*100,100) : 100;
+  return `<div class="xp-bar"><span class="xp-label">${label}</span><div class="xp-track"><div class="xp-fill" style="width:${pct}%"></div></div><span class="xp-num">${xp} XP${total?' / '+total:''}</span></div>`;
+}
+function paceSection(pace, compact) {
+  if (!pace) return '';
+  const labels = {ahead:'AHEAD',on_track:'ON TRACK',lagging:'LAGGING',no_baseline:'NO BASELINE'};
+  let h = `<div class="section"><div class="section-title">PACE <span class="pace-status pace-${pace.pace}">${labels[pace.pace]||pace.pace}</span></div>`;
+  h += `<div class="pace-panel">`;
+  h += `<div class="pace-card"><div class="pc-value" style="color:var(--amber)">${pace.this_week_xp}</div><div class="pc-label">THIS WEEK</div></div>`;
+  h += `<div class="pace-card"><div class="pc-value" style="color:var(--text-dim)">${pace.baseline_xp}</div><div class="pc-label">BASELINE</div></div>`;
+  h += `<div class="pace-card"><div class="pc-value" style="color:var(--text-dim)">${pace.min_threshold}-${pace.ahead_threshold}</div><div class="pc-label">80%-120%</div></div>`;
+  const sdC = pace.ship_day_healthy?'var(--phosphor)':pace.ship_days>0?'var(--amber)':'var(--red)';
+  h += `<div class="pace-card"><div class="pc-value" style="color:${sdC}">${pace.ship_days}/${pace.ship_day_target}</div><div class="pc-label">SHIP DAYS</div>`;
+  h += `<div class="ship-day-dots">`;
+  ['M','T','W','T','F'].forEach((d,i) => { const filled = (pace.ship_dates||[]).some(ds => new Date(ds).getDay()===(i+1)); h += `<div class="ship-day-dot${filled?' filled':''}">${d}</div>`; });
+  h += `</div></div></div>`;
+  if (!compact && pace.weekly_history?.length > 1) {
+    const mx = Math.max(...pace.weekly_history.map(w=>w.xp),1);
+    h += `<div style="margin-top:4px"><div style="font-size:11px;color:var(--text-dim);letter-spacing:2px">XP HISTORY</div><div class="pace-history">`;
+    pace.weekly_history.slice(-8).forEach(w => { const p = Math.max((w.xp/mx)*100,5); const c = w.week===pace.weekly_history[pace.weekly_history.length-1].week; h += `<div class="pace-history-bar${c?' current':''}" style="height:${p}%" title="${w.week}: ${w.xp} XP"></div>`; });
+    h += `</div></div>`;
+  }
+  return h + '</div>';
+}
+
+// ═══════════════════════════════════════════════════════
+// INTERACTIVE ACTIONS
+// ═══════════════════════════════════════════════════════
+const selectedShips = new Set();
+function toggleShip(el, artId) {
+  if (selectedShips.has(artId)) { selectedShips.delete(artId); el.style.background=''; el.style.borderLeft=''; }
+  else { selectedShips.add(artId); el.style.background='var(--phosphor-glow)'; el.style.borderLeft='2px solid var(--phosphor)'; }
+}
+function submitShips() {
+  if (selectedShips.size===0) { addMessage('error','wrapup','SELECT AT LEAST ONE ARTIFACT'); return; }
+  sendPayload({cmd:'wrapup',shipped:Array.from(selectedShips)});
+  selectedShips.clear();
+}
+function confirmPending(idx) {
+  try {
+    const pc = (window._syncPending || [])[idx];
+    if (!pc || !pc.action_to_confirm) {
+      addMessage('error', 'confirm', 'PENDING DATA NOT FOUND — index ' + idx + '. Try re-running /sync.');
+      return;
+    }
+    sendPayload(pc.action_to_confirm);
+    const c = document.getElementById('cc-' + idx);
+    if (c) { c.style.opacity = '0.3'; c.style.pointerEvents = 'none'; }
+  } catch(e) { addMessage('error', 'confirm', 'CONFIRM FAILED: ' + e.message); }
+}
+function confirmAction(payloadStr) {
+  // Legacy fallback — try parsing inline payload
+  try {
+    if (typeof payloadStr === 'string') { sendPayload(JSON.parse(payloadStr)); }
+    else if (typeof payloadStr === 'object') { sendPayload(payloadStr); }
+    else { addMessage('error', 'confirm', 'Invalid payload type'); return; }
+    if (event && event.target) {
+      const card = event.target.closest('.confirm-card');
+      if (card) { card.style.opacity = '0.3'; card.style.pointerEvents = 'none'; }
+    }
+  } catch(e) { addMessage('error', 'confirm', 'FAILED: ' + e.message); }
+}
+window._mappingTypes = {};
+window._mappingNewTypes = {};
+function showAltPanel(idx, mode) {
+  const pick=document.getElementById('alt-pick-'+idx), newP=document.getElementById('alt-new-'+idx);
+  if(pick)pick.classList.remove('visible'); if(newP)newP.classList.remove('visible');
+  const target=mode==='pick'?pick:newP; if(target)target.classList.add('visible');
+}
+function pickType(idx,type) {
+  window._mappingTypes[idx]=type;
+  const row=document.getElementById('altType-'+idx);
+  if(row)row.querySelectorAll('.type-chip').forEach(c=>{c.classList.toggle('selected',c.textContent.toLowerCase().startsWith(type))});
+}
+function pickNewType(idx,type) {
+  window._mappingNewTypes[idx]=type;
+  const row=document.getElementById('newType-'+idx);
+  if(row)row.querySelectorAll('.type-chip').forEach(c=>{c.classList.toggle('selected',c.textContent.toLowerCase().startsWith(type))});
+}
+
+function confirmCluster(ci) {
+  try {
+    const cluster = (window._syncClusters || [])[ci];
+    if (!cluster || !cluster.accept_payload) {
+      addMessage('error', 'sync', 'CLUSTER DATA NOT FOUND — index ' + ci + '. Try re-running /sync.');
+      return;
+    }
+    sendPayload(cluster.accept_payload);
+    const c = document.getElementById('cluster-' + ci);
+    if (c) { c.style.opacity = '0.3'; c.style.pointerEvents = 'none'; }
+  } catch(e) { addMessage('error', 'sync', 'CLUSTER FAILED: ' + e.message); }
+}
+function showClusterRemap(ci) { const p=document.getElementById('cluster-remap-'+ci); if(p)p.classList.toggle('visible'); }
+function submitClusterRemap(ci) {
+  const epicId=document.getElementById('clusterEpic-'+ci)?.value;
+  if(!epicId){addMessage('error','sync','SELECT AN EPIC');return;}
+  const cluster=(window._syncClusters||[])[ci] || lastResponse?.cluster_confirmations?.[ci];
+  if(!cluster){addMessage('error','sync','CLUSTER DATA NOT FOUND — try re-running /sync');return;}
+  const xpMap={slice:2,small:3,medium:8,large:12};
+  const mappings=(cluster.items||[]).map(it=>({text:it.item_text,action:'create_artifact',epic_id:epicId,suggested_title:it.suggested_title||it.item_text,suggested_type:it.suggested_type||'small',suggested_xp:it.suggested_xp||xpMap[it.suggested_type]||3}));
+  sendPayload({cmd:'sync',mappings});
+  const c=document.getElementById('cluster-'+ci); if(c){c.style.opacity='0.3';c.style.pointerEvents='none';}
+}
+function breakCluster(ci) {
+  const cluster=(window._syncClusters||[])[ci] || lastResponse?.cluster_confirmations?.[ci]; if(!cluster)return;
+  const card=document.getElementById('cluster-'+ci); if(!card)return;
+  const xpMap={slice:2,small:3,medium:8,large:12};
+  const eOpts=(window._availableEpics||[]).map(e=>`<option value="${e.epic_id}">${e.epic_id} — ${e.title} (${e.open_count} open)</option>`).join('');
+  let ch='';
+  (cluster.items||[]).forEach((it,ii)=>{
+    const bI='b'+ci+'-'+ii; const st=it.suggested_type||'small';
+    ch+=`<div class="confirm-card" id="cc-${bI}"><div class="confirm-text">${escHtml(it.suggested_title||it.item_text)}</div>
+      <div class="confirm-reason">From cluster: ${escHtml(cluster.suggested_epic_title)}</div>
+      <div class="confirm-actions">
+        <button class="confirm-btn alt" onclick="showAltPanel('${bI}','pick')">PICK EPIC</button>
+        <button class="confirm-btn alt" onclick="showAltPanel('${bI}','new')">NEW EPIC</button>
+        <button class="confirm-btn reject" onclick="this.closest('.confirm-card').style.opacity='0.3';this.closest('.confirm-card').style.pointerEvents='none'">SKIP</button>
+      </div>
+      <div class="map-alt" id="alt-pick-${bI}"><div class="map-alt-label">Map to epic</div><div class="map-alt-row"><select id="altEpic-${bI}">${eOpts}</select></div><div class="map-alt-row"><input type="text" id="altTitle-${bI}" value="${escHtml(it.suggested_title||it.item_text)}" /></div>
+      <div class="map-alt-label">Size</div><div class="map-alt-type-row" id="altType-${bI}">
+        <button class="type-chip ${st==='slice'?'selected':''}" onclick="pickType('${bI}','slice')">SLICE 2</button>
+        <button class="type-chip ${st==='small'?'selected':''}" onclick="pickType('${bI}','small')">SMALL 3</button>
+        <button class="type-chip ${st==='medium'?'selected':''}" onclick="pickType('${bI}','medium')">MED 8</button>
+        <button class="type-chip ${st==='large'?'selected':''}" onclick="pickType('${bI}','large')">LRG 12</button>
+      </div><div style="margin-top:6px"><button class="confirm-btn" onclick="submitMapping('${bI}','create_artifact')">ADD TO EPIC</button></div></div>
+      <div class="map-alt" id="alt-new-${bI}"><div class="map-alt-label">New epic</div><div class="map-alt-row"><input type="text" id="newEpicTitle-${bI}" placeholder="Epic title" /></div><div class="map-alt-row"><input type="text" id="newArtTitle-${bI}" value="${escHtml(it.suggested_title||it.item_text)}" /></div>
+      <div class="map-alt-label">Size</div><div class="map-alt-type-row" id="newType-${bI}">
+        <button class="type-chip ${st==='slice'?'selected':''}" onclick="pickNewType('${bI}','slice')">SLICE 2</button>
+        <button class="type-chip ${st==='small'?'selected':''}" onclick="pickNewType('${bI}','small')">SMALL 3</button>
+        <button class="type-chip ${st==='medium'?'selected':''}" onclick="pickNewType('${bI}','medium')">MED 8</button>
+        <button class="type-chip ${st==='large'?'selected':''}" onclick="pickNewType('${bI}','large')">LRG 12</button>
+      </div><div style="margin-top:6px"><button class="confirm-btn" onclick="submitMapping('${bI}','create_epic')">CREATE EPIC</button></div></div>
+    </div>`;
+  });
+  card.style.borderColor='var(--border)';
+  card.innerHTML=`<div style="font-size:13px;color:var(--text-dim);margin-bottom:6px">CLUSTER BROKEN — ASSIGN INDIVIDUALLY:</div>${ch}`;
+}
+function submitMapping(idx, action) {
+  const card=document.getElementById('cc-'+idx);
+  const xpMap={slice:2,small:3,medium:8,large:12};
+  if(action==='create_artifact'){
+    const epicId=document.getElementById('altEpic-'+idx)?.value;
+    const title=document.getElementById('altTitle-'+idx)?.value?.trim();
+    const type=window._mappingTypes[idx]||'small';
+    if(!epicId){addMessage('error','sync','SELECT AN EPIC');return;}
+    if(!title){addMessage('error','sync','ENTER A TITLE');return;}
+    sendPayload({cmd:'sync',mappings:[{text:title,action:'create_artifact',epic_id:epicId,suggested_title:title,suggested_type:type,suggested_xp:xpMap[type]||3}]});
+  } else if(action==='create_epic'){
+    const epicTitle=document.getElementById('newEpicTitle-'+idx)?.value?.trim();
+    const artTitle=document.getElementById('newArtTitle-'+idx)?.value?.trim();
+    const type=window._mappingNewTypes[idx]||'small';
+    if(!epicTitle){addMessage('error','sync','ENTER EPIC TITLE');return;}
+    if(!artTitle){addMessage('error','sync','ENTER ARTIFACT TITLE');return;}
+    sendPayload({cmd:'sync',mappings:[{text:artTitle,action:'create_epic',suggested_epic_title:epicTitle,suggested_title:artTitle,suggested_type:type,suggested_xp:xpMap[type]||3}]});
+  }
+  if(card){card.style.opacity='0.3';card.style.pointerEvents='none';}
+}
+
+function assignArtifact(btn) {
+  const aid=btn.dataset.aid, role=btn.dataset.role;
+  const group=btn.closest('.pb-radio-group'), card=btn.closest('.pb-card');
+  if(window._planAssignments[aid]===role){ delete window._planAssignments[aid]; group.querySelectorAll('.pb-radio').forEach(b=>b.className='pb-radio'); card.style.borderColor='var(--border)'; card.style.background=''; }
+  else{ window._planAssignments[aid]=role; group.querySelectorAll('.pb-radio').forEach(b=>b.className='pb-radio'); btn.classList.add('sel-'+role); const colors={committed:'var(--phosphor)',stretch:'var(--amber)',parked:'#555'}; card.style.borderColor=colors[role]||'var(--border)'; card.style.background=role==='committed'?'var(--phosphor-glow)':role==='stretch'?'rgba(255,176,0,0.05)':''; }
+  const counts={committed:0,stretch:0,parked:0};
+  for(const r of Object.values(window._planAssignments)){if(counts[r]!==undefined)counts[r]++;}
+  const cE=document.getElementById('pbCountC'); if(cE)cE.textContent=counts.committed;
+  const sE=document.getElementById('pbCountS'); if(sE)sE.textContent=counts.stretch;
+  const pE=document.getElementById('pbCountP'); if(pE)pE.textContent=counts.parked;
+}
+function updateQuestArtifacts(q) {
+  const es=document.getElementById('quest'+q+'Epic'), as=document.getElementById('quest'+q+'Art');
+  if(!es||!as)return; const eId=es.value;
+  as.innerHTML='<option value="">— Finish Line —</option>';
+  if(!eId||!window._planArtifacts)return;
+  window._planArtifacts.filter(a=>a.epic_id===eId).forEach(a=>{const o=document.createElement('option');o.value=a.artifact_id;o.textContent=a.artifact_id+' — '+a.title+' ('+a.xp+'XP, '+a.type+')';as.appendChild(o);});
+}
+function submitPlanForm() {
+  const committed=[],stretch=[],parked=[];
+  for(const[aid,role]of Object.entries(window._planAssignments||{})){if(role==='committed')committed.push(aid);else if(role==='stretch')stretch.push(aid);else if(role==='parked')parked.push(aid);}
+  const quests=[];
+  for(let q=1;q<=2;q++){const eE=document.getElementById('quest'+q+'Epic'),aE=document.getElementById('quest'+q+'Art');const eId=eE?eE.value:'',aId=aE?aE.value:'';if(eId&&aId)quests.push({epic_id:eId,friday_artifact_id:aId});}
+  if(committed.length===0){addMessage('error','week','COMMIT AT LEAST 1 ARTIFACT');return;}
+  if(quests.length===0){addMessage('error','week','SELECT AT LEAST 1 QUEST');return;}
+  sendPayload({cmd:'start',phase:'plan',shipped:[],committed,stretch,parked,quests,dependencies:[]});
+}
+
+// ── /start plan builder helpers ──
+function toggleStartShip(el, artId) {
+  if (!window._planShipped) window._planShipped = new Set();
+  const assignCard = document.getElementById('pb-' + artId);
+  if (window._planShipped.has(artId)) {
+    window._planShipped.delete(artId);
+    el.style.background = ''; el.style.borderColor = '';
+    el.querySelector('.ship-label').textContent = 'SHIP?';
+    el.querySelector('.ship-label').style.color = 'var(--text-dim)';
+    if (assignCard) { assignCard.style.display = ''; assignCard.style.opacity = ''; }
+    // Remove from assignments if it was there
+  } else {
+    window._planShipped.add(artId);
+    el.style.background = 'var(--phosphor-glow)'; el.style.borderColor = 'var(--phosphor-bright)';
+    el.querySelector('.ship-label').textContent = '✓ SHIPPED';
+    el.querySelector('.ship-label').style.color = 'var(--phosphor-bright)';
+    // Dim the assign card since shipped items don't need C/S/P
+    if (assignCard) { assignCard.style.opacity = '0.25'; assignCard.style.pointerEvents = 'none'; }
+    // Remove from C/S/P assignments
+    delete (window._planAssignments || {})[artId];
+  }
+  // Update counters
+  const shipE = document.getElementById('pbCountShip'); if (shipE) shipE.textContent = window._planShipped.size;
+  const counts = {committed:0, stretch:0, parked:0};
+  for (const r of Object.values(window._planAssignments || {})) { if (counts[r] !== undefined) counts[r]++; }
+  const cE = document.getElementById('pbCountC'); if (cE) cE.textContent = counts.committed;
+  const sE = document.getElementById('pbCountS'); if (sE) sE.textContent = counts.stretch;
+  const pE = document.getElementById('pbCountP'); if (pE) pE.textContent = counts.parked;
+}
+
+function submitStartPlan() {
+  const shipped = Array.from(window._planShipped || new Set());
+  const committed = [], stretch = [], parked = [];
+  for (const [aid, role] of Object.entries(window._planAssignments || {})) {
+    if (shipped.includes(aid)) continue; // Skip shipped items
+    if (role === 'committed') committed.push(aid);
+    else if (role === 'stretch') stretch.push(aid);
+    else if (role === 'parked') parked.push(aid);
+  }
+  const quests = [];
+  for (let q = 1; q <= 2; q++) {
+    const eE = document.getElementById('quest' + q + 'Epic'), aE = document.getElementById('quest' + q + 'Art');
+    const eId = eE ? eE.value : '', aId = aE ? aE.value : '';
+    if (eId && aId) quests.push({epic_id: eId, friday_artifact_id: aId});
+  }
+  if (committed.length === 0 && shipped.length === 0) { addMessage('error', 'start', 'COMMIT AT LEAST 1 ARTIFACT OR SHIP SOMETHING'); return; }
+  if (quests.length === 0 && committed.length > 0) { addMessage('error', 'start', 'SELECT AT LEAST 1 QUEST'); return; }
+  sendPayload({cmd: 'start', phase: 'plan', shipped, committed, stretch, parked, quests, dependencies: []});
+  window._planShipped = new Set();
+  window._planAssignments = {};
+}
+
+// ═══════════════════════════════════════════════════════
+// FILE BROWSER ACTIONS
+// ═══════════════════════════════════════════════════════
+function openFileEditor(path) {
+  const wrap = document.getElementById('fileEditorWrap');
+  if (wrap) {
+    wrap.style.display = 'block';
+    const ta = document.getElementById('fileEditorContent');
+    if (ta) { ta.focus(); ta.setSelectionRange(0, 0); }
+  }
+}
+
+function saveFileEdit(path) {
+  const ta = document.getElementById('fileEditorContent');
+  if (!ta) return;
+  const content = ta.value;
+  // If JSON, validate first
+  if (path.endsWith('.json')) {
+    try {
+      const parsed = JSON.parse(content);
+      sendPayload({ cmd: 'files', action: 'write', path, content_json: parsed });
+    } catch (e) {
+      addMessage('error', 'files', 'INVALID JSON: ' + e.message);
+      return;
+    }
+  } else {
+    sendPayload({ cmd: 'files', action: 'write', path, content });
+  }
+  document.getElementById('fileEditorWrap').style.display = 'none';
+}
+
+// ═══════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════
+// MANAGE: DRAG & DROP + DELETE
+// ═══════════════════════════════════════════════════════
+let _dragItem = null;
+let _dragType = null;
+
+function mgrDragStart(e, type) {
+  _dragType = type;
+  _dragItem = e.target.closest('.manage-row');
+  _dragItem.classList.add('dragging');
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/plain', ''); // required for Firefox
+}
+
+function mgrDragOver(e) {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  const row = e.target.closest('.manage-row');
+  if (!row || row === _dragItem) return;
+  // Only allow drag within same type
+  if (row.dataset.dragType !== _dragType) return;
+  // For artifacts, only within same epic
+  if (_dragType === 'artifact' && row.dataset.epicId !== _dragItem.dataset.epicId) return;
+  // Clear all drag-over classes first
+  document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+  row.classList.add('drag-over');
+}
+
+function mgrDragLeave(e) {
+  const row = e.target.closest('.manage-row');
+  if (row) row.classList.remove('drag-over');
+}
+
+function mgrDrop(e, type) {
+  e.preventDefault();
+  document.querySelectorAll('.drag-over,.dragging').forEach(el => {
+    el.classList.remove('drag-over','dragging');
+  });
+  const dropTarget = e.target.closest('.manage-row');
+  if (!dropTarget || !_dragItem || dropTarget === _dragItem) return;
+  if (dropTarget.dataset.dragType !== _dragType) return;
+
+  if (type === 'epic') {
+    const container = document.getElementById('manageEpicList');
+    if (!container) return;
+    const dragGroup = _dragItem.closest('.manage-group');
+    const dropGroup = dropTarget.closest('.manage-group');
+    if (!dragGroup || !dropGroup) return;
+    const rect = dropTarget.getBoundingClientRect();
+    const midY = rect.top + rect.height / 2;
+    if (e.clientY < midY) {
+      container.insertBefore(dragGroup, dropGroup);
+    } else {
+      container.insertBefore(dragGroup, dropGroup.nextSibling);
+    }
+    // Update order
+    window._manageEpicOrder = [...container.querySelectorAll('.manage-group')].map(g => g.id.replace('mgrp-',''));
+    markManageDirty();
+  }
+  else if (type === 'artifact') {
+    const epicId = _dragItem.dataset.epicId;
+    const list = document.getElementById('marts-' + epicId);
+    if (!list) return;
+    const rect = dropTarget.getBoundingClientRect();
+    const midY = rect.top + rect.height / 2;
+    if (e.clientY < midY) {
+      list.insertBefore(_dragItem, dropTarget);
+    } else {
+      list.insertBefore(_dragItem, dropTarget.nextSibling);
+    }
+    // Update order
+    window._manageArtOrders[epicId] = [...list.querySelectorAll('.manage-row')].map(r => r.dataset.artifactId);
+    markManageDirty();
+  }
+  else if (type === 'ops') {
+    // Reorder within the ops section — move DOM elements
+    const parent = _dragItem.parentNode;
+    const rect = dropTarget.getBoundingClientRect();
+    const midY = rect.top + rect.height / 2;
+    if (e.clientY < midY) {
+      parent.insertBefore(_dragItem, dropTarget);
+    } else {
+      parent.insertBefore(_dragItem, dropTarget.nextSibling);
+    }
+    window._opsDirty = true;
+    const btn = document.getElementById('opsSaveBtn');
+    if (btn) { btn.disabled = false; btn.style.boxShadow = 'var(--glow)'; }
+  }
+  else if (type === 'mastery') {
+    const parent = _dragItem.parentNode;
+    const rect = dropTarget.getBoundingClientRect();
+    const midY = rect.top + rect.height / 2;
+    if (e.clientY < midY) {
+      parent.insertBefore(_dragItem, dropTarget);
+    } else {
+      parent.insertBefore(_dragItem, dropTarget.nextSibling);
+    }
+    window._mastDirty = true;
+    const btn = document.getElementById('mastSaveBtn');
+    if (btn) { btn.disabled = false; btn.style.boxShadow = 'var(--glow)'; }
+  }
+
+  _dragItem = null;
+  _dragType = null;
+}
+
+function markManageDirty() {
+  window._manageDirty = true;
+  const btn = document.getElementById('mgrSaveBtn');
+  if (btn) { btn.disabled = false; btn.style.boxShadow = 'var(--glow)'; }
+  const hint = document.getElementById('mgrHint');
+  if (hint) { hint.textContent = 'Order changed — click SAVE ORDER'; hint.style.color = 'var(--amber)'; }
+}
+
+function submitManageReorder() {
+  // Collect current DOM order for epics and artifacts in one pass
+  const container = document.getElementById('manageEpicList');
+  let epicOrder = window._manageEpicOrder || [];
+  const artOrders = window._manageArtOrders || {};
+  // Re-read from DOM to be safe
+  if (container) {
+    epicOrder = [...container.querySelectorAll('.manage-group')].map(g => g.id.replace('mgrp-',''));
+    container.querySelectorAll('.manage-art-list').forEach(list => {
+      const eid = list.id.replace('marts-','');
+      artOrders[eid] = [...list.querySelectorAll('.manage-row[data-artifact-id]')].map(r => r.dataset.artifactId);
+    });
+  }
+  // Send everything in ONE request (avoids mutex/race issues)
+  sendPayload({ cmd: 'edit', action: 'reorder_all', epic_order: epicOrder, artifact_orders: artOrders });
+  window._manageDirty = false;
+  const btn = document.getElementById('mgrSaveBtn');
+  if (btn) { btn.disabled = true; btn.style.boxShadow = ''; }
+}
+
+function submitOpsReorder() {
+  // Collect current DOM order of ops rows with data-ops-id
+  const section = document.querySelector('.section[style*="border-color:var(--cyan)"]');
+  if (!section) return;
+  const rows = section.querySelectorAll('.manage-row[data-ops-id]');
+  const ids = [...rows].map(r => r.dataset.opsId);
+  sendPayload({ cmd: 'ops', action: 'reorder', ids });
+  window._opsDirty = false;
+}
+
+function submitMastReorder() {
+  const section = document.querySelector('.section[style*="border-color:var(--amber)"]');
+  if (!section) return;
+  const rows = section.querySelectorAll('.manage-row[data-mast-id]');
+  const ids = [...rows].map(r => r.dataset.mastId);
+  sendPayload({ cmd: 'ops', action: 'reorder_mastery', ids });
+  window._mastDirty = false;
+}
+
+// ── DELETE CONFIRMATIONS ──
+function confirmDeleteArtifact(artifactId, title, epicId) {
+  const overlay = document.createElement('div');
+  overlay.className = 'confirm-delete-overlay';
+  overlay.innerHTML = `
+    <div class="confirm-delete-box">
+      <h3>[ DELETE ARTIFACT ]</h3>
+      <p>Remove <strong style="color:var(--phosphor-bright)">${escHtml(artifactId)}</strong> — ${escHtml(title)}<br>from <strong>${escHtml(epicId)}</strong>?<br><br><span style="color:var(--text-dim);font-size:12px">This cannot be undone. Shipped artifacts cannot be deleted.</span></p>
+      <div class="modal-actions">
+        <button class="modal-btn secondary" onclick="this.closest('.confirm-delete-overlay').remove()">ESC</button>
+        <button class="modal-btn primary" style="background:var(--red);border-color:var(--red)" onclick="execDeleteArtifact('${artifactId}')">DELETE</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  overlay.addEventListener('keydown', e => { if (e.key === 'Escape') overlay.remove(); });
+}
+
+function execDeleteArtifact(artifactId) {
+  document.querySelector('.confirm-delete-overlay')?.remove();
+  sendPayload({ cmd: 'edit', action: 'delete_artifact', artifact_id: artifactId });
+}
+
+function confirmDeleteOps(id, text) {
+  const overlay = document.createElement('div');
+  overlay.className = 'confirm-delete-overlay';
+  overlay.innerHTML = `
+    <div class="confirm-delete-box">
+      <h3>[ DELETE OPS TASK ]</h3>
+      <p>Remove <strong style="color:var(--phosphor-bright)">${escHtml(id)}</strong> — ${escHtml(text)}?</p>
+      <div class="modal-actions">
+        <button class="modal-btn secondary" onclick="this.closest('.confirm-delete-overlay').remove()">ESC</button>
+        <button class="modal-btn primary" style="background:var(--red);border-color:var(--red)" onclick="execDeleteOps('${id}')">DELETE</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  overlay.addEventListener('keydown', e => { if (e.key === 'Escape') overlay.remove(); });
+}
+
+function execDeleteOps(id) {
+  document.querySelector('.confirm-delete-overlay')?.remove();
+  sendPayload({ cmd: 'ops', action: 'delete', id });
+}
+
+function confirmDeleteMastery(id, text) {
+  const overlay = document.createElement('div');
+  overlay.className = 'confirm-delete-overlay';
+  overlay.innerHTML = `
+    <div class="confirm-delete-box">
+      <h3>[ DELETE MASTERY TASK ]</h3>
+      <p>Remove <strong style="color:var(--phosphor-bright)">${escHtml(id)}</strong> — ${escHtml(text)}?</p>
+      <div class="modal-actions">
+        <button class="modal-btn secondary" onclick="this.closest('.confirm-delete-overlay').remove()">ESC</button>
+        <button class="modal-btn primary" style="background:var(--red);border-color:var(--red)" onclick="execDeleteMastery('${id}')">DELETE</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  overlay.addEventListener('keydown', e => { if (e.key === 'Escape') overlay.remove(); });
+}
+
+function execDeleteMastery(id) {
+  document.querySelector('.confirm-delete-overlay')?.remove();
+  sendPayload({ cmd: 'ops', action: 'delete_mastery', id });
+}
+
+// EDIT ACTIONS
+// ═══════════════════════════════════════════════════════
+function promptEditEpic(epicId, currentTitle) {
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = `
+    <div class="modal">
+      <h3>[ RENAME EPIC: ${escHtml(epicId)} ]</h3>
+      <input type="text" id="editEpicInput" value="${escHtml(currentTitle)}" />
+      <div class="modal-actions">
+        <button class="modal-btn secondary" onclick="this.closest('.modal-overlay').remove()">ESC</button>
+        <button class="modal-btn primary" onclick="submitEditEpic('${epicId}')">RENAME</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  const inp = document.getElementById('editEpicInput');
+  inp.focus(); inp.select();
+  inp.addEventListener('keydown', e => { if (e.key === 'Enter') submitEditEpic(epicId); if (e.key === 'Escape') overlay.remove(); });
+}
+
+function submitEditEpic(epicId) {
+  const val = document.getElementById('editEpicInput')?.value?.trim();
+  if (!val) { addMessage('error','edit','ENTER A TITLE'); return; }
+  document.querySelector('.modal-overlay')?.remove();
+  sendPayload({ cmd: 'edit', epic_id: epicId, new_title: val });
+}
+
+function promptEditArtifact(artifactId, currentTitle) {
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = `
+    <div class="modal">
+      <h3>[ RENAME ARTIFACT: ${escHtml(artifactId)} ]</h3>
+      <input type="text" id="editArtInput" value="${escHtml(currentTitle)}" />
+      <div class="modal-actions">
+        <button class="modal-btn secondary" onclick="this.closest('.modal-overlay').remove()">ESC</button>
+        <button class="modal-btn primary" onclick="submitEditArtifact('${artifactId}')">RENAME</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  const inp = document.getElementById('editArtInput');
+  inp.focus(); inp.select();
+  inp.addEventListener('keydown', e => { if (e.key === 'Enter') submitEditArtifact(artifactId); if (e.key === 'Escape') overlay.remove(); });
+}
+
+function submitEditArtifact(artifactId) {
+  const val = document.getElementById('editArtInput')?.value?.trim();
+  if (!val) { addMessage('error','edit','ENTER A TITLE'); return; }
+  document.querySelector('.modal-overlay')?.remove();
+  sendPayload({ cmd: 'edit', artifact_id: artifactId, new_artifact_title: val });
+}
+
+// ═══════════════════════════════════════════════════════
+// SWAP ACTIONS
+// ═══════════════════════════════════════════════════════
+window._selectedSwapMove = null;
+window._selectedSwapArt = null;
+
+function selectSwapMove(moveId, idx) {
+  // Deselect all move cards
+  document.querySelectorAll('[id^="swap-move-"]').forEach(el => { el.style.borderColor = 'var(--border)'; el.style.background = ''; });
+  // Select this one
+  const card = document.getElementById('swap-move-' + idx);
+  if (card) { card.style.borderColor = 'var(--red)'; card.style.background = 'rgba(255,51,51,0.05)'; }
+  window._selectedSwapMove = moveId;
+  updateSwapHint();
+}
+
+function selectSwapArt(artId) {
+  // Deselect all art cards
+  document.querySelectorAll('[id^="swap-art-"]').forEach(el => { el.style.borderColor = 'var(--border)'; el.style.background = ''; });
+  // Select this one
+  const card = document.getElementById('swap-art-' + artId);
+  if (card) { card.style.borderColor = 'var(--phosphor)'; card.style.background = 'var(--phosphor-glow)'; }
+  window._selectedSwapArt = artId;
+  updateSwapHint();
+}
+
+function updateSwapHint() {
+  const hint = document.getElementById('swapHint');
+  if (!hint) return;
+  if (window._selectedSwapMove && window._selectedSwapArt) {
+    hint.textContent = 'Ready: remove ' + window._selectedSwapMove + ' → swap in ' + window._selectedSwapArt;
+    hint.style.color = 'var(--phosphor)';
+  } else if (window._selectedSwapMove) {
+    hint.textContent = 'Move selected. Now pick an artifact.';
+    hint.style.color = 'var(--amber)';
+  } else if (window._selectedSwapArt) {
+    hint.textContent = 'Artifact selected. Now pick a move to replace.';
+    hint.style.color = 'var(--amber)';
+  } else {
+    hint.textContent = 'Select a move and an artifact';
+    hint.style.color = '';
+  }
+}
+
+function executeSwap() {
+  if (!window._selectedSwapMove) { addMessage('error','swap','SELECT A MOVE TO REMOVE'); return; }
+  if (!window._selectedSwapArt) { addMessage('error','swap','SELECT AN ARTIFACT TO SWAP IN'); return; }
+  sendPayload({ cmd: 'swap', remove_move_id: window._selectedSwapMove, new_artifact_id: window._selectedSwapArt });
+  window._selectedSwapMove = null;
+  window._selectedSwapArt = null;
+}
+
+// ═══════════════════════════════════════════════════════
+// OPS ACTIONS
+// ═══════════════════════════════════════════════════════
+function markOpsDone(id) {
+  const row = document.getElementById('ops-' + id);
+  if (row) { row.style.opacity = '0.4'; row.style.textDecoration = 'line-through'; }
+  sendPayload({ cmd: 'ops', action: 'done', ids: [id] });
+}
+
+function markMasteryDone(id) {
+  const row = document.getElementById('mast-' + id);
+  if (row) { row.style.opacity = '0.4'; row.style.textDecoration = 'line-through'; }
+  sendPayload({ cmd: 'ops', action: 'done_mastery', ids: [id] });
+}
+
+function promptAddOps() {
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = `
+    <div class="modal">
+      <h3>[ ADD OPS TASK ]</h3>
+      <input type="text" id="addOpsInput" placeholder="e.g. email Sarah about stakeholder list" />
+      <div class="modal-actions">
+        <button class="modal-btn secondary" onclick="this.closest('.modal-overlay').remove()">ESC</button>
+        <button class="modal-btn primary" onclick="submitAddOps()">ADD</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  const inp = document.getElementById('addOpsInput');
+  inp.focus();
+  inp.addEventListener('keydown', e => { if (e.key === 'Enter') submitAddOps(); if (e.key === 'Escape') overlay.remove(); });
+}
+
+function submitAddOps() {
+  const val = document.getElementById('addOpsInput')?.value?.trim();
+  if (!val) return;
+  document.querySelector('.modal-overlay')?.remove();
+  sendPayload({ cmd: 'ops', action: 'add', text: val });
+}
+
+function promptAddMastery() {
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = `
+    <div class="modal">
+      <h3>[ ADD MASTERY TASK ]</h3>
+      <input type="text" id="addMastInput" placeholder="e.g. complete Coursera data governance module 3" />
+      <div class="modal-actions">
+        <button class="modal-btn secondary" onclick="this.closest('.modal-overlay').remove()">ESC</button>
+        <button class="modal-btn primary" onclick="submitAddMastery()">ADD</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  const inp = document.getElementById('addMastInput');
+  inp.focus();
+  inp.addEventListener('keydown', e => { if (e.key === 'Enter') submitAddMastery(); if (e.key === 'Escape') overlay.remove(); });
+}
+
+function submitAddMastery() {
+  const val = document.getElementById('addMastInput')?.value?.trim();
+  if (!val) return;
+  document.querySelector('.modal-overlay')?.remove();
+  sendPayload({ cmd: 'ops', action: 'add_mastery', text: val });
+}
+
+// ═══════════════════════════════════════════════════════
+// PING DATE ACTIONS
+// ═══════════════════════════════════════════════════════
+function promptSetPing(opsId, currentWaitingOn) {
+  const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1);
+  const defaultDate = tomorrow.toISOString().slice(0, 10);
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = `
+    <div class="modal">
+      <h3>[ SET PING — ${opsId} ]</h3>
+      <label style="font-size:13px;color:var(--text-dim);display:block;margin-bottom:4px">WAITING ON:</label>
+      <input type="text" id="pingWaitingOn" value="${escHtml(currentWaitingOn)}" placeholder="e.g. Sarah, Finance dept, IT helpdesk" />
+      <label style="font-size:13px;color:var(--text-dim);display:block;margin:8px 0 4px">PING DATE:</label>
+      <input type="date" id="pingDateInput" value="${defaultDate}" style="background:var(--bg);color:var(--phosphor);border:1px solid var(--border);padding:6px 10px;font-family:var(--font);font-size:15px;width:100%;border-radius:3px" />
+      <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
+        <button class="confirm-btn" style="font-size:12px;padding:3px 8px" onclick="document.getElementById('pingDateInput').value=quickDate(1)">+1d</button>
+        <button class="confirm-btn" style="font-size:12px;padding:3px 8px" onclick="document.getElementById('pingDateInput').value=quickDate(2)">+2d</button>
+        <button class="confirm-btn" style="font-size:12px;padding:3px 8px" onclick="document.getElementById('pingDateInput').value=quickDate(3)">+3d</button>
+        <button class="confirm-btn" style="font-size:12px;padding:3px 8px" onclick="document.getElementById('pingDateInput').value=quickDate(7)">+1w</button>
+        <button class="confirm-btn" style="font-size:12px;padding:3px 8px" onclick="document.getElementById('pingDateInput').value=quickDate(14)">+2w</button>
+      </div>
+      <div class="modal-actions">
+        <button class="modal-btn secondary" onclick="this.closest('.modal-overlay').remove()">ESC</button>
+        <button class="modal-btn primary" onclick="submitSetPing('${opsId}')">SET PING</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  const first = currentWaitingOn ? document.getElementById('pingDateInput') : document.getElementById('pingWaitingOn');
+  first.focus();
+  overlay.addEventListener('keydown', e => {
+    if (e.key === 'Enter') submitSetPing(opsId);
+    if (e.key === 'Escape') overlay.remove();
+  });
+}
+
+function quickDate(daysAhead) {
+  const d = new Date(); d.setDate(d.getDate() + daysAhead);
+  return d.toISOString().slice(0, 10);
+}
+
+function submitSetPing(opsId) {
+  const waitingOn = document.getElementById('pingWaitingOn')?.value?.trim() || '';
+  const pingDate = document.getElementById('pingDateInput')?.value?.trim() || '';
+  document.querySelector('.modal-overlay')?.remove();
+  if (!pingDate) { addMessage('error', 'ops', 'Ping date is required.'); return; }
+  sendPayload({ cmd: 'ops', action: 'set_ping', id: opsId, waiting_on: waitingOn, ping_date: pingDate });
+}
+
+// ═══════════════════════════════════════════════════════
+// AUTO-PING CHECK ON STARTUP
+// ═══════════════════════════════════════════════════════
+let pingsChecked = false;
+async function checkPingsOnLoad() {
+  if (pingsChecked || !webhookUrl) return;
+  pingsChecked = true;
+  try {
+    const res = await fetch(webhookUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ cmd: 'ops', action: 'pings' })
+    });
+    let data = await res.json();
+    if (Array.isArray(data)) data = data[0] || {};
+    if (data.json && typeof data.json === 'object' && (data.json.cmd || data.json.status)) data = data.json;
+    if (data.total_overdue > 0) {
+      renderResponse('ops', data, false, false);
+      // Also flash the status dot red briefly
+      const dot = document.getElementById('statusDot');
+      dot.style.background = 'var(--red)';
+      dot.style.boxShadow = '0 0 6px var(--red)';
+      setTimeout(() => { dot.style.background = ''; dot.style.boxShadow = ''; }, 3000);
+    }
+  } catch (e) {
+    // Silent fail — pings check is best-effort on startup
+  }
+  // Also load HUD stats silently
+  loadBannerStats();
+}
+
+async function loadBannerStats() {
+  try {
+    const res = await fetch(webhookUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ cmd: 'week' })
+    });
+    let data = await res.json();
+    if (Array.isArray(data)) data = data[0] || {};
+    if (data.json && typeof data.json === 'object') data = data.json;
+    updateBanner(data);
+    // Also extract total XP from status if available — try a quick status pull
+    if (data.pace && data.pace.weekly_history) {
+      hudState.xp_total = data.pace.weekly_history.reduce((s, w) => s + (w.xp || 0), 0);
+      renderBanner();
+    }
+  } catch (e) { /* silent */ }
+}
+
+// ═══════════════════════════════════════════════════════
+// MATRIX BOOT SEQUENCE
+// ═══════════════════════════════════════════════════════
+(function runBootSequence() {
+  const wakeEl = document.getElementById('wakeText');
+  const cursorEl = document.getElementById('wakeCursor');
+  const followEl = document.getElementById('matrixFollow');
+  const follow2El = document.getElementById('matrixFollow2');
+  const knockEl = document.getElementById('matrixKnock');
+  const bannerEl = document.getElementById('asciiBanner');
+  const bootLines = document.querySelectorAll('#bootLines .boot-line');
+  const bootScreen = document.getElementById('bootScreen');
+
+  const wakeMsg = 'Wake up, Neo...';
+  let i = 0;
+
+  // Phase 1: typewriter "Wake up, Neo..."
+  document.getElementById('matrixWake').classList.add('typing');
+  const typeTimer = setInterval(() => {
+    if (i < wakeMsg.length) {
+      wakeEl.textContent += wakeMsg[i];
+      i++;
+    } else {
+      clearInterval(typeTimer);
+      // Phase 2: follow-up lines
+      setTimeout(() => { followEl.classList.add('show'); }, 500);
+      setTimeout(() => { follow2El.classList.add('show'); }, 1400);
+      setTimeout(() => { knockEl.classList.add('show'); }, 2300);
+      // Phase 3: clear matrix text, show ASCII banner
+      setTimeout(() => {
+        document.getElementById('matrixWake').style.transition = 'opacity 0.4s';
+        document.getElementById('matrixWake').style.opacity = '0';
+        followEl.style.transition = 'opacity 0.4s';
+        followEl.style.opacity = '0';
+        follow2El.style.transition = 'opacity 0.4s';
+        follow2El.style.opacity = '0';
+        knockEl.style.transition = 'opacity 0.4s';
+        knockEl.style.opacity = '0';
+      }, 3400);
+      setTimeout(() => { bannerEl.classList.add('show'); }, 3900);
+      // Phase 4: boot lines cascade
+      bootLines.forEach((line, idx) => {
+        setTimeout(() => { line.classList.add('show'); }, 4400 + idx * 200);
+      });
+      // Phase 5: fade out boot screen, reveal HUD
+      setTimeout(() => {
+        bootScreen.classList.add('fade-out');
+        document.getElementById('hudBanner').classList.add('visible');
+      }, 4400 + bootLines.length * 200 + 800);
+    }
+  }, 70);
+})();
+
+// Fire ping check after boot completes
+setTimeout(checkPingsOnLoad, 7000);
+</script>
+</body>
+</html>

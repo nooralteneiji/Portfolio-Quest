@@ -1,0 +1,86 @@
+{
+  "name": "PQL — Test Client (AI Enhanced)",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "38a936d6-46ea-4fe4-8611-acce0a6f2cee",
+      "name": "Run Test",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -160,
+        -128
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ═══════════════════════════════════════════════\n// CHANGE THIS BLOCK FOR EACH TEST\n// ═══════════════════════════════════════════════\n\n// TEST 1: Seed the system\n// const payload = { cmd: 'seed' };\n\n// TEST 2: Sync with natural language brain dump\n// The AI will split this into 3 items and classify each:\n//   - \"email Sarah about the stakeholder list\" → ops_admin\n//   - \"build a training dashboard for the team\" → portfolio (new artifact or new epic)\n//   - \"watch that Coursera data governance course\" → mastery\nconst payload = {\n  cmd: 'sync',\n  free_text: 'need to email Sarah about the stakeholder list, also should start building a training dashboard for the team, and watch that Coursera data governance course'\n};\n\n// TEST 3: Sync with portfolio-only items\n// const payload = {\n//   cmd: 'sync',\n//   free_text: 'draft the stakeholder mapping table, also need a quick data quality checklist slice'\n// };\n\n// TEST 4: Confirm AI suggestions (after seeing sync results)\n// const payload = {\n//   cmd: 'sync',\n//   mappings: [\n//     {\n//       text: 'build a training dashboard for the team',\n//       action: 'create_epic',\n//       suggested_epic_title: 'Team Training Dashboard',\n//       suggested_title: 'Training dashboard v1',\n//       suggested_type: 'medium',\n//       suggested_xp: 8\n//     }\n//   ]\n// };\n\n// TEST 5: Start (morning review)\n// const payload = { cmd: 'start', free_text: 'feeling focused today, want to push on the engagement framework' };\n\n// TEST 6: Week view\n// const payload = { cmd: 'week' };\n\n// TEST 7: Status report\n// const payload = { cmd: 'status' };\n\n// TEST 8: Wrapup (end of day)\n// const payload = { cmd: 'wrapup', shipped: ['EPIC-001-A1'] };\n\n// TEST 9: Debug\n// const payload = { cmd: 'debug' };\n\n// ═══════════════════════════════════════════════\nreturn [{ json: payload }];"
+      },
+      "id": "89949471-5d06-4d6e-9dd5-1475a6211ea5",
+      "name": "Build Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        64,
+        -128
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://n8n-dev.ecouncil.ae/webhook/portfolio-quest-league",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "id": "35ba3ca7-5c46-4014-87e7-48103388d67e",
+      "name": "Call PQL Webhook",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        288,
+        -128
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Run Test": {
+      "main": [
+        [
+          {
+            "node": "Build Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Payload": {
+      "main": [
+        [
+          {
+            "node": "Call PQL Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "c6c72e5a-6cf7-4a14-b9a2-b19828553e4a",
+  "meta": {
+    "instanceId": "814ce8cf5f46f64d4a3d61f081e4c6e96aa1187a9d9fec86648b350f18e7c7c2"
+  },
+  "id": "Axaqb8QUuY-7rmT1EGQTl",
+  "tags": []
+}
