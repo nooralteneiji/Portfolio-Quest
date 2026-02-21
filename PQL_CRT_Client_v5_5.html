@@ -646,28 +646,30 @@ body{
 }
 
 
-/* ═══ STREAK TRACKER ═══ */
-.streak-tracker{
-  position:relative;z-index:6;
-  display:flex;align-items:center;gap:10px;
-  padding:4px 12px;
-  border-bottom:1px solid var(--border);
+/* ═══ STREAK TRACKER (inside HUD) ═══ */
+.streak-hud{
+  display:flex;flex-direction:column;align-items:center;
+  justify-content:center;padding:4px 6px;
   background:rgba(51,255,0,0.02);
-  flex-shrink:0;
+  border:1px solid transparent;
+  transition:border-color 0.3s;gap:2px;
 }
-.streak-title{
-  font-size:9px;letter-spacing:2px;text-transform:uppercase;
-  color:var(--text-dim);writing-mode:vertical-lr;
-  transform:rotate(180deg);white-space:nowrap;
+.streak-hud:hover{border-color:var(--border)}
+.streak-hud .hs-label{
+  font-size:9px;letter-spacing:1px;text-transform:uppercase;
+  color:var(--text-dim);
 }
 .streak-grid{
   display:grid;
   grid-template-columns:repeat(7,1fr);
-  grid-template-rows:repeat(4,1fr);
-  gap:2px;flex:1;max-width:220px;
+  gap:2px;
+}
+.streak-day-hdr{
+  font-size:6px;color:var(--text-dim);
+  text-align:center;line-height:1;
 }
 .streak-cell{
-  width:12px;height:12px;
+  width:10px;height:10px;
   border:1px solid var(--border);
   background:transparent;
   transition:background 0.2s, border-color 0.2s;
@@ -680,17 +682,6 @@ body{
 .streak-cell.today{
   border-color:var(--phosphor-bright);
   box-shadow:0 0 4px var(--phosphor-dim);
-}
-.streak-day-labels{
-  display:grid;
-  grid-template-columns:repeat(7,1fr);
-  gap:2px;max-width:220px;
-  position:absolute;bottom:-1px;left:36px;
-  pointer-events:none;display:none;
-}
-.streak-day-labels span{
-  font-size:7px;color:var(--text-dim);
-  text-align:center;width:12px;
 }
 
 /* ═══ FILE BROWSER ═══ */
@@ -824,15 +815,13 @@ body{
       <div class="matrix-wake" id="matrixWake"><span id="wakeText"></span><span class="matrix-cursor" id="wakeCursor"></span></div>
       <div class="matrix-follow" id="matrixFollow">The Matrix has you...</div>
       <pre class="duck-transition" id="duckTransition">
-          __
-     _  _(  )_
-    ( >(' o  ' )
-     \_)_\=_/_)   ~  ~  ~
-          ||
-        _/  \_
-
-    >v<  >v<  >v<  >v<  >v<
-      </pre>
+        ,~~.
+       (  9 &gt;
+       / (  \
+      ( /  \ )
+       \\ _//
+        ^^-^^
+</pre>
       <pre class="ascii-banner" id="asciiBanner">
 ████████╗██████╗  ██████╗
 ╚══██╔══╝██╔══██╗██╔═══██╗
@@ -893,16 +882,12 @@ body{
           <span class="hs-label">TOTAL XP</span>
           <span class="hs-sub" id="hudTotalSub">&nbsp;</span>
         </div>
-      </div>
-    </div>
-
-    <div class="streak-tracker" id="streakTracker">
-      <span class="streak-title">SHIP STREAK</span>
-      <div class="streak-grid" id="streakGrid">
-        <!-- 4 rows x 7 cols rendered by JS -->
-      </div>
-      <div class="streak-day-labels">
-        <span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span><span>S</span>
+        <div class="streak-hud" id="streakTracker">
+          <span class="hs-label">STREAK</span>
+          <div class="streak-grid" id="streakGrid">
+            <!-- day headers + 4 rows x 7 cols rendered by JS -->
+          </div>
+        </div>
       </div>
     </div>
 
@@ -1019,7 +1004,7 @@ function updateBanner(data) {
 
   if (changed) {
     renderBanner();
-    updateStreakFromShipDays(data);
+    updateStreakFromShipDays();
   }
 }
 
@@ -1078,14 +1063,16 @@ function renderBanner() {
 }
 
 // ═══════════════════════════════════════════════════════
-// STREAK TRACKER (7 days x 4 weeks)
+// STREAK TRACKER (7 days x 4 weeks, driven by ship_dates)
 // ═══════════════════════════════════════════════════════
-let streakData = JSON.parse(localStorage.getItem('tpq_streak') || '{}');
 
 function renderStreak() {
   const grid = document.getElementById('streakGrid');
   if (!grid) return;
   grid.innerHTML = '';
+
+  // Build a Set of date strings where an artifact was shipped
+  const shippedSet = new Set((hudState.ship_dates || []).map(ds => ds.slice(0, 10)));
 
   const today = new Date();
   const todayStr = today.toISOString().slice(0, 10);
@@ -1095,7 +1082,16 @@ function renderStreak() {
   const currentMonday = new Date(today);
   currentMonday.setDate(today.getDate() + mondayOffset);
 
-  // Build 4 weeks: 3 weeks ago, 2 weeks ago, last week, this week (top to bottom)
+  // Day header row (M T W T F S S)
+  const dayLabels = ['M','T','W','T','F','S','S'];
+  dayLabels.forEach(lbl => {
+    const hdr = document.createElement('div');
+    hdr.className = 'streak-day-hdr';
+    hdr.textContent = lbl;
+    grid.appendChild(hdr);
+  });
+
+  // Build 4 weeks: 3 weeks ago → this week (top to bottom)
   for (let week = 3; week >= 0; week--) {
     for (let day = 0; day < 7; day++) {
       const d = new Date(currentMonday);
@@ -1104,36 +1100,17 @@ function renderStreak() {
 
       const cell = document.createElement('div');
       cell.className = 'streak-cell';
-      if (streakData[dateStr]) cell.classList.add('shipped');
+      if (shippedSet.has(dateStr)) cell.classList.add('shipped');
       if (dateStr === todayStr) cell.classList.add('today');
       cell.title = dateStr;
-      cell.addEventListener('click', () => toggleStreakDay(dateStr, cell));
       grid.appendChild(cell);
     }
   }
 }
 
-function toggleStreakDay(dateStr, cell) {
-  if (streakData[dateStr]) {
-    delete streakData[dateStr];
-    cell.classList.remove('shipped');
-  } else {
-    streakData[dateStr] = true;
-    cell.classList.add('shipped');
-  }
-  localStorage.setItem('tpq_streak', JSON.stringify(streakData));
-}
-
-// Auto-mark today as shipped when ship_days changes
-function updateStreakFromShipDays(data) {
-  if (data.ship_days !== undefined && data.ship_days > 0) {
-    const todayStr = new Date().toISOString().slice(0, 10);
-    if (!streakData[todayStr]) {
-      streakData[todayStr] = true;
-      localStorage.setItem('tpq_streak', JSON.stringify(streakData));
-      renderStreak();
-    }
-  }
+// Called from updateBanner when ship_dates change
+function updateStreakFromShipDays() {
+  renderStreak();
 }
 
 renderStreak();
