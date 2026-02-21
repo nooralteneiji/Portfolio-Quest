@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>PQL — Terminal</title>
+<title>The Portfolio Quest — Terminal</title>
 <link href="https://fonts.googleapis.com/css2?family=VT323&family=Share+Tech+Mono&display=swap" rel="stylesheet">
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -446,6 +446,16 @@ body{
 }
 .matrix-follow.show{opacity:1}
 
+.duck-transition{
+  font-size:14px;line-height:1.3;
+  color:var(--phosphor);text-shadow:var(--glow);
+  font-family:'Courier New',monospace;
+  white-space:pre;text-align:center;
+  opacity:0;margin-top:10px;
+  transition:opacity 0.6s ease;
+}
+.duck-transition.show{opacity:1}
+
 .ascii-banner{
   font-size:11px;line-height:1.15;
   color:var(--phosphor);text-shadow:var(--glow);
@@ -472,7 +482,7 @@ body{
 /* ═══ HUD BANNER (permanent top 20%) ═══ */
 .hud-banner{
   position:relative;z-index:6;
-  height:20%;min-height:100px;max-height:180px;
+  height:10%;min-height:50px;max-height:90px;
   border-bottom:1px solid var(--border);
   display:flex;align-items:stretch;
   padding:0;flex-shrink:0;
@@ -482,21 +492,21 @@ body{
 }
 .hud-banner.visible{opacity:1}
 .hud-ascii{
-  width:200px;flex-shrink:0;
+  width:140px;flex-shrink:0;
   display:flex;align-items:center;justify-content:center;
   border-right:1px solid var(--border);
-  padding:8px 12px;
+  padding:4px 8px;
   position:relative;
 }
 .hud-ascii pre{
-  font-size:9px;line-height:1.1;
+  font-size:5px;line-height:1.05;
   color:var(--phosphor);text-shadow:var(--glow);
   font-family:'Courier New',monospace;
   white-space:pre;margin:0;
 }
 .hud-ascii .hud-ver{
-  position:absolute;bottom:4px;left:0;right:0;
-  text-align:center;font-size:10px;
+  position:absolute;bottom:2px;left:0;right:0;
+  text-align:center;font-size:9px;
   color:var(--text-dim);letter-spacing:2px;
 }
 .hud-stats{
@@ -516,15 +526,15 @@ body{
 }
 .hud-stat:hover{border-color:var(--border)}
 .hud-stat .hs-value{
-  font-size:26px;line-height:1;
+  font-size:18px;line-height:1;
   color:var(--phosphor-bright);text-shadow:var(--glow);
 }
 .hud-stat .hs-label{
-  font-size:10px;letter-spacing:2px;text-transform:uppercase;
+  font-size:9px;letter-spacing:1px;text-transform:uppercase;
   color:var(--text-dim);
 }
 .hud-stat .hs-sub{
-  font-size:10px;color:var(--text-dim);
+  font-size:9px;color:var(--text-dim);
   letter-spacing:1px;
 }
 .hud-stat.pace-ahead .hs-value{color:var(--phosphor-bright);text-shadow:var(--glow-bright)}
@@ -555,6 +565,53 @@ body{
   .hud-stats{grid-template-columns:repeat(3,1fr)}
 }
 
+
+/* ═══ STREAK TRACKER ═══ */
+.streak-tracker{
+  position:relative;z-index:6;
+  display:flex;align-items:center;gap:10px;
+  padding:4px 12px;
+  border-bottom:1px solid var(--border);
+  background:rgba(51,255,0,0.02);
+  flex-shrink:0;
+}
+.streak-title{
+  font-size:9px;letter-spacing:2px;text-transform:uppercase;
+  color:var(--text-dim);writing-mode:vertical-lr;
+  transform:rotate(180deg);white-space:nowrap;
+}
+.streak-grid{
+  display:grid;
+  grid-template-columns:repeat(7,1fr);
+  grid-template-rows:repeat(4,1fr);
+  gap:2px;flex:1;max-width:220px;
+}
+.streak-cell{
+  width:12px;height:12px;
+  border:1px solid var(--border);
+  background:transparent;
+  transition:background 0.2s, border-color 0.2s;
+}
+.streak-cell.shipped{
+  background:var(--phosphor);
+  border-color:var(--phosphor);
+  box-shadow:0 0 3px var(--phosphor-glow);
+}
+.streak-cell.today{
+  border-color:var(--phosphor-bright);
+  box-shadow:0 0 4px var(--phosphor-dim);
+}
+.streak-day-labels{
+  display:grid;
+  grid-template-columns:repeat(7,1fr);
+  gap:2px;max-width:220px;
+  position:absolute;bottom:-1px;left:36px;
+  pointer-events:none;display:none;
+}
+.streak-day-labels span{
+  font-size:7px;color:var(--text-dim);
+  text-align:center;width:12px;
+}
 
 /* ═══ FILE BROWSER ═══ */
 .fb-tree{padding:4px 0}
@@ -677,7 +734,7 @@ body{
 
 <div class="monitor">
   <div class="monitor-bar">
-    <div class="monitor-brand">Portfolio Quest League</div>
+    <div class="monitor-brand">The Portfolio Quest</div>
     <div class="monitor-model" id="endpointDisplay" style="cursor:pointer" onclick="showEndpointModal()">—</div>
     <div class="power-led" id="statusDot" title="Connection status"></div>
   </div>
@@ -686,18 +743,26 @@ body{
     <div class="boot-screen" id="bootScreen">
       <div class="matrix-wake" id="matrixWake"><span id="wakeText"></span><span class="matrix-cursor" id="wakeCursor"></span></div>
       <div class="matrix-follow" id="matrixFollow">The Matrix has you...</div>
-      <div class="matrix-follow" id="matrixFollow2">Follow the white rabbit.</div>
-      <div class="matrix-follow" id="matrixKnock">Knock, knock.</div>
+      <pre class="duck-transition" id="duckTransition">
+          __
+     _  _(  )_
+    ( >(' o  ' )
+     \_)_\=_/_)   ~  ~  ~
+          ||
+        _/  \_
+
+    >v<  >v<  >v<  >v<  >v<
+      </pre>
       <pre class="ascii-banner" id="asciiBanner">
- ██████╗  ██████╗ ██╗     
- ██╔══██╗██╔═══██╗██║     
- ██████╔╝██║   ██║██║     
- ██╔═══╝ ██║▄▄ ██║██║     
- ██║     ╚██████╔╝███████╗
- ╚═╝      ╚══▀▀═╝ ╚══════╝
- PORTFOLIO  QUEST  LEAGUE</pre>
+████████╗██████╗  ██████╗
+╚══██╔══╝██╔══██╗██╔═══██╗
+   ██║   ██████╔╝██║   ██║
+   ██║   ██╔═══╝ ██║▄▄ ██║
+   ██║   ██║     ╚██████╔╝
+   ╚═╝   ╚═╝      ╚══▀▀═╝
+ THE  PORTFOLIO  QUEST</pre>
       <div class="boot-lines" id="bootLines">
-        <div class="boot-line">PQL KERNEL v5.2</div>
+        <div class="boot-line">TPQ KERNEL v5.2</div>
         <div class="boot-line">STATIC DATA STORE ............ OK</div>
         <div class="boot-line">EPIC LIBRARY ................. OK</div>
         <div class="boot-line">AI CLASSIFIER ................ OK</div>
@@ -709,12 +774,12 @@ body{
     <div class="hud-banner" id="hudBanner">
       <div class="hud-ascii">
         <pre>
-██████╗  ██████╗ ██╗
-██╔══██╗██╔═══██╗██║
-██████╔╝██║   ██║██║
-██╔═══╝ ██║▄▄ ██║██║
-██║     ╚██████╔╝███████╗
-╚═╝      ╚══▀▀═╝ ╚══════╝</pre>
+████████╗██████╗  ██████╗
+╚══██╔══╝██╔══██╗██╔═══██╗
+   ██║   ██████╔╝██║   ██║
+   ██║   ██╔═══╝ ██║▄▄ ██║
+   ██║   ██║     ╚██████╔╝
+   ╚═╝   ╚═╝      ╚══▀▀═╝</pre>
         <span class="hud-ver" id="hudWeekLabel">—</span>
       </div>
       <div class="hud-stats" id="hudStats">
@@ -751,6 +816,16 @@ body{
       </div>
     </div>
 
+    <div class="streak-tracker" id="streakTracker">
+      <span class="streak-title">SHIP STREAK</span>
+      <div class="streak-grid" id="streakGrid">
+        <!-- 4 rows x 7 cols rendered by JS -->
+      </div>
+      <div class="streak-day-labels">
+        <span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span><span>S</span>
+      </div>
+    </div>
+
     <div class="screen-inner">
       <aside class="sidebar">
         <div class="sk-label">SYS</div>
@@ -781,7 +856,7 @@ body{
         <div class="feed" id="feed">
           <div class="msg">
             <div class="msg-body" style="text-align:center;padding:24px;color:var(--text-dim)">
-              <div style="font-size:20px;color:var(--phosphor-bright);text-shadow:var(--glow);margin-bottom:4px">PORTFOLIO QUEST LEAGUE v5.2</div>
+              <div style="font-size:20px;color:var(--phosphor-bright);text-shadow:var(--glow);margin-bottom:4px">THE PORTFOLIO QUEST v5.2</div>
               <div style="font-size:14px">Type brain dump + ENTER or press F3-F7</div>
             </div>
           </div>
@@ -859,7 +934,10 @@ function updateBanner(data) {
     hudState.committed_count = data.committed.length; changed = true;
   }
 
-  if (changed) renderBanner();
+  if (changed) {
+    renderBanner();
+    updateStreakFromShipDays(data);
+  }
 }
 
 function renderBanner() {
@@ -915,6 +993,67 @@ function renderBanner() {
   document.getElementById('hudTotalVal').textContent = hudState.xp_total || '—';
   document.getElementById('hudTotalSub').textContent = hudState.xp_total > 0 ? 'ALL TIME' : '';
 }
+
+// ═══════════════════════════════════════════════════════
+// STREAK TRACKER (7 days x 4 weeks)
+// ═══════════════════════════════════════════════════════
+let streakData = JSON.parse(localStorage.getItem('tpq_streak') || '{}');
+
+function renderStreak() {
+  const grid = document.getElementById('streakGrid');
+  if (!grid) return;
+  grid.innerHTML = '';
+
+  const today = new Date();
+  const todayStr = today.toISOString().slice(0, 10);
+  // Find the Monday of the current week
+  const dayOfWeek = today.getDay(); // 0=Sun
+  const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+  const currentMonday = new Date(today);
+  currentMonday.setDate(today.getDate() + mondayOffset);
+
+  // Build 4 weeks: 3 weeks ago, 2 weeks ago, last week, this week (top to bottom)
+  for (let week = 3; week >= 0; week--) {
+    for (let day = 0; day < 7; day++) {
+      const d = new Date(currentMonday);
+      d.setDate(currentMonday.getDate() - (week * 7) + day);
+      const dateStr = d.toISOString().slice(0, 10);
+
+      const cell = document.createElement('div');
+      cell.className = 'streak-cell';
+      if (streakData[dateStr]) cell.classList.add('shipped');
+      if (dateStr === todayStr) cell.classList.add('today');
+      cell.title = dateStr;
+      cell.addEventListener('click', () => toggleStreakDay(dateStr, cell));
+      grid.appendChild(cell);
+    }
+  }
+}
+
+function toggleStreakDay(dateStr, cell) {
+  if (streakData[dateStr]) {
+    delete streakData[dateStr];
+    cell.classList.remove('shipped');
+  } else {
+    streakData[dateStr] = true;
+    cell.classList.add('shipped');
+  }
+  localStorage.setItem('tpq_streak', JSON.stringify(streakData));
+}
+
+// Auto-mark today as shipped when ship_days changes
+function updateStreakFromShipDays(data) {
+  if (data.ship_days !== undefined && data.ship_days > 0) {
+    const todayStr = new Date().toISOString().slice(0, 10);
+    if (!streakData[todayStr]) {
+      streakData[todayStr] = true;
+      localStorage.setItem('tpq_streak', JSON.stringify(streakData));
+      renderStreak();
+    }
+  }
+}
+
+renderStreak();
 
 document.getElementById('endpointDisplay').textContent = webhookUrl;
 
@@ -2867,16 +3006,15 @@ async function loadBannerStats() {
   const wakeEl = document.getElementById('wakeText');
   const cursorEl = document.getElementById('wakeCursor');
   const followEl = document.getElementById('matrixFollow');
-  const follow2El = document.getElementById('matrixFollow2');
-  const knockEl = document.getElementById('matrixKnock');
+  const duckEl = document.getElementById('duckTransition');
   const bannerEl = document.getElementById('asciiBanner');
   const bootLines = document.querySelectorAll('#bootLines .boot-line');
   const bootScreen = document.getElementById('bootScreen');
 
-  const wakeMsg = 'Wake up, Neo...';
+  const wakeMsg = 'Wake up, Noor...';
   let i = 0;
 
-  // Phase 1: typewriter "Wake up, Neo..."
+  // Phase 1: typewriter "Wake up, Noor..."
   document.getElementById('matrixWake').classList.add('typing');
   const typeTimer = setInterval(() => {
     if (i < wakeMsg.length) {
@@ -2884,20 +3022,17 @@ async function loadBannerStats() {
       i++;
     } else {
       clearInterval(typeTimer);
-      // Phase 2: follow-up lines
+      // Phase 2: follow-up line + duck transition
       setTimeout(() => { followEl.classList.add('show'); }, 500);
-      setTimeout(() => { follow2El.classList.add('show'); }, 1400);
-      setTimeout(() => { knockEl.classList.add('show'); }, 2300);
-      // Phase 3: clear matrix text, show ASCII banner
+      setTimeout(() => { duckEl.classList.add('show'); }, 1400);
+      // Phase 3: clear text, show ASCII banner
       setTimeout(() => {
         document.getElementById('matrixWake').style.transition = 'opacity 0.4s';
         document.getElementById('matrixWake').style.opacity = '0';
         followEl.style.transition = 'opacity 0.4s';
         followEl.style.opacity = '0';
-        follow2El.style.transition = 'opacity 0.4s';
-        follow2El.style.opacity = '0';
-        knockEl.style.transition = 'opacity 0.4s';
-        knockEl.style.opacity = '0';
+        duckEl.style.transition = 'opacity 0.4s';
+        duckEl.style.opacity = '0';
       }, 3400);
       setTimeout(() => { bannerEl.classList.add('show'); }, 3900);
       // Phase 4: boot lines cascade
