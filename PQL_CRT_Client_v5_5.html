@@ -2151,6 +2151,17 @@ function renderResponse(cmd, data, isError, isAI) {
 
   // ═══ LIBRARY: stacked folder-tab view ═══
   if (cmd === 'library') {
+    // Backfill result
+    if (data.mode === 'backfill_applied') {
+      html += `<div class="section"><div class="section-title">BACKFILL APPLIED <span class="badge badge-green">${data.applied} OK</span>${data.skipped ? ` <span class="badge badge-yellow">${data.skipped} SKIPPED</span>` : ''}</div>`;
+      (data.results || []).forEach(r => {
+        const badge = r.status === 'ok' ? 'badge-green' : 'badge-yellow';
+        html += `<div class="art-row"><span class="badge ${badge}">${r.status.toUpperCase()}</span><span class="art-id">${escHtml(r.artifact_id)}</span>${r.shipped_date ? `<span style="font-size:12px;color:var(--text-dim)">${escHtml(r.shipped_date)}</span>` : ''}${r.reason ? `<span style="font-size:12px;color:var(--amber)">${escHtml(r.reason)}</span>` : ''}</div>`;
+      });
+      html += `</div>`;
+      addRichMessage('recv', cmd, html); return;
+    }
+
     const folders = data.folders || [];
 
     // Detail mode: expanded single epic
@@ -2163,7 +2174,8 @@ function renderResponse(cmd, data, isError, isAI) {
         html += `<div class="lib-milestone"><div class="lib-milestone-title">${escHtml(m.title)} (${m.shipped}/${m.total})</div>`;
         (m.artifacts || []).forEach(a => {
           const icon = a.status === 'shipped' ? '\u2705' : '\u2b1c';
-          html += `<div class="art-row"><span style="font-size:14px">${icon}</span><span class="art-id">${escHtml(a.artifact_id)}</span><span class="art-title">${escHtml(a.title)}</span><span class="art-xp">${a.xp} XP</span><span class="art-type">${escHtml(a.type)}</span><span class="art-status status-${a.status}">${a.status.toUpperCase()}</span></div>`;
+          const shipDate = a.shipped_date ? `<span style="font-size:11px;color:var(--text-dim);margin-left:4px">${escHtml(a.shipped_date)}</span>` : '';
+          html += `<div class="art-row"><span style="font-size:14px">${icon}</span><span class="art-id">${escHtml(a.artifact_id)}</span><span class="art-title">${escHtml(a.title)}</span><span class="art-xp">${a.xp} XP</span><span class="art-type">${escHtml(a.type)}</span><span class="art-status status-${a.status}">${a.status.toUpperCase()}</span>${shipDate}</div>`;
         });
         html += `</div>`;
       });
@@ -2198,7 +2210,8 @@ function renderResponse(cmd, data, isError, isAI) {
         html += `<div class="lib-milestone"><div class="lib-milestone-title">${escHtml(m.title)} (${m.shipped}/${m.total})</div>`;
         (m.artifacts || []).forEach(a => {
           const icon = a.status === 'shipped' ? '\u2705' : '\u2b1c';
-          html += `<div class="art-row"><span style="font-size:13px">${icon}</span><span class="art-id" style="font-size:12px">${escHtml(a.artifact_id)}</span><span class="art-title" style="font-size:13px">${escHtml(a.title)}</span><span class="art-xp">${a.xp} XP</span><span class="art-status status-${a.status}" style="font-size:10px">${a.status.toUpperCase()}</span></div>`;
+          const shipDate = a.shipped_date ? `<span style="font-size:10px;color:var(--text-dim);margin-left:4px">${escHtml(a.shipped_date)}</span>` : '';
+          html += `<div class="art-row"><span style="font-size:13px">${icon}</span><span class="art-id" style="font-size:12px">${escHtml(a.artifact_id)}</span><span class="art-title" style="font-size:13px">${escHtml(a.title)}</span><span class="art-xp">${a.xp} XP</span><span class="art-status status-${a.status}" style="font-size:10px">${a.status.toUpperCase()}</span>${shipDate}</div>`;
         });
         html += `</div>`;
       });
