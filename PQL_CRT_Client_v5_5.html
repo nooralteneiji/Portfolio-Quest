@@ -673,6 +673,7 @@ body{
   width:10px;height:10px;
   border:1px solid var(--border);
   background:transparent;
+  cursor:pointer;
   transition:background 0.2s, border-color 0.2s;
 }
 .streak-cell.shipped{
@@ -683,6 +684,15 @@ body{
 .streak-cell.today{
   border-color:var(--phosphor-bright);
   box-shadow:0 0 4px var(--phosphor-dim);
+}
+.streak-cell.holiday{
+  background:#ffaa00;
+  border-color:#ffaa00;
+  box-shadow:0 0 3px rgba(255,170,0,0.5);
+}
+.streak-cell.shipped.holiday{
+  background:linear-gradient(135deg,var(--phosphor) 50%,#ffaa00 50%);
+  border-color:#ffaa00;
 }
 
 /* ═══ FILE BROWSER ═══ */
@@ -953,6 +963,7 @@ const HUD_DEFAULTS = {
   week_id: '—', xp_this_week: 0, xp_total: 0, baseline: 0,
   min_threshold: 0, ahead_threshold: 0, pace: 'no_baseline',
   ship_days: 0, ship_target: 3, ship_dates: [], streak_ship_dates: [],
+  holiday_dates: [],
   quests: [], open_count: 0, committed_count: 0
 };
 const hudState = Object.assign({}, HUD_DEFAULTS, JSON.parse(localStorage.getItem('pql_hud') || '{}'));
@@ -1065,6 +1076,18 @@ function renderBanner() {
 // STREAK TRACKER (7 days x 4 weeks, driven by ship_dates)
 // ═══════════════════════════════════════════════════════
 
+function toggleHoliday(dateStr) {
+  if (!hudState.holiday_dates) hudState.holiday_dates = [];
+  const idx = hudState.holiday_dates.indexOf(dateStr);
+  if (idx === -1) {
+    hudState.holiday_dates.push(dateStr);
+  } else {
+    hudState.holiday_dates.splice(idx, 1);
+  }
+  localStorage.setItem('pql_hud', JSON.stringify(hudState));
+  renderStreak();
+}
+
 function renderStreak() {
   const grid = document.getElementById('streakGrid');
   if (!grid) return;
@@ -1072,6 +1095,7 @@ function renderStreak() {
 
   // Build a Set of date strings where an artifact was shipped (last 28 days)
   const shippedSet = new Set((hudState.streak_ship_dates || []).map(ds => ds.slice(0, 10)));
+  const holidaySet = new Set(hudState.holiday_dates || []);
 
   const today = new Date();
   const todayStr = today.toISOString().slice(0, 10);
@@ -1100,8 +1124,10 @@ function renderStreak() {
       const cell = document.createElement('div');
       cell.className = 'streak-cell';
       if (shippedSet.has(dateStr)) cell.classList.add('shipped');
+      if (holidaySet.has(dateStr)) cell.classList.add('holiday');
       if (dateStr === todayStr) cell.classList.add('today');
-      cell.title = dateStr;
+      cell.title = dateStr + (holidaySet.has(dateStr) ? ' (holiday)' : '');
+      cell.addEventListener('click', () => toggleHoliday(dateStr));
       grid.appendChild(cell);
     }
   }
