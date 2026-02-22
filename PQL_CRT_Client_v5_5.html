@@ -341,6 +341,49 @@ body{
 .lib-summary .lib-sum-label{color:var(--text-dim);font-size:11px;letter-spacing:1px;text-transform:uppercase}
 .lib-sum-card{text-align:center;padding:4px 12px;border:1px solid var(--border);background:rgba(51,255,0,0.02)}
 
+/* ═══ LEVERAGE TYPE SELECTOR ═══ */
+.leverage-selector{display:flex;gap:4px;margin-top:4px;flex-wrap:wrap}
+.leverage-btn{
+  padding:2px 8px;font-size:11px;font-family:var(--font);
+  background:transparent;border:1px solid var(--border);color:var(--text-dim);
+  cursor:pointer;letter-spacing:1px;transition:all 0.2s;
+}
+.leverage-btn:hover{border-color:var(--text);color:var(--text)}
+.leverage-btn.selected{border-color:var(--cyan);color:var(--cyan);background:rgba(0,255,204,0.08)}
+.leverage-btn[data-lev="decide"].selected{border-color:var(--phosphor-bright);color:var(--phosphor-bright);background:rgba(51,255,0,0.08)}
+.leverage-btn[data-lev="absorb"].selected{border-color:var(--amber);color:var(--amber);background:rgba(255,176,0,0.08)}
+.leverage-btn[data-lev="align"].selected{border-color:var(--cyan);color:var(--cyan);background:rgba(0,255,204,0.08)}
+.leverage-btn[data-lev="clear"].selected{border-color:#cc66ff;color:#cc66ff;background:rgba(204,102,255,0.08)}
+.leverage-summary{display:flex;gap:8px;margin:4px 0;font-size:13px;flex-wrap:wrap}
+.leverage-tag{padding:1px 6px;font-size:12px;border:1px solid;letter-spacing:1px}
+.leverage-tag.lev-decide{border-color:var(--phosphor-bright);color:var(--phosphor-bright)}
+.leverage-tag.lev-absorb{border-color:var(--amber);color:var(--amber)}
+.leverage-tag.lev-align{border-color:var(--cyan);color:var(--cyan)}
+.leverage-tag.lev-clear{border-color:#cc66ff;color:#cc66ff}
+.leverage-tag.lev-none{border-color:var(--text-dim);color:var(--text-dim)}
+/* HUD Leverage stat */
+.hud-lev-grid{display:flex;gap:3px;margin-top:2px;flex-wrap:wrap;justify-content:center}
+.hud-lev-pip{
+  font-size:9px;padding:0 3px;letter-spacing:1px;
+  border:1px solid;min-width:20px;text-align:center;
+}
+.hud-lev-pip.lev-decide{border-color:var(--phosphor-bright);color:var(--phosphor-bright)}
+.hud-lev-pip.lev-absorb{border-color:var(--amber);color:var(--amber)}
+.hud-lev-pip.lev-align{border-color:var(--cyan);color:var(--cyan)}
+.hud-lev-pip.lev-clear{border-color:#cc66ff;color:#cc66ff}
+/* CEO Brief section */
+.ceo-brief{
+  padding:8px;margin:6px 0;
+  border:1px solid var(--cyan);
+  background:rgba(0,255,204,0.04);
+  font-size:13px;line-height:1.5;
+}
+.ceo-brief .brief-title{
+  font-size:11px;letter-spacing:2px;text-transform:uppercase;
+  color:var(--cyan);margin-bottom:4px;
+}
+.ceo-brief .brief-line{color:var(--text);padding:2px 0}
+
 /* ═══ XP BAR ═══ */
 .xp-bar{
   display:flex;align-items:center;gap:8px;padding:4px 0;margin:4px 0;
@@ -873,10 +916,10 @@ body{
           <span class="hs-label">OPEN ARTS</span>
           <span class="hs-sub" id="hudOpenSub">&nbsp;</span>
         </div>
-        <div class="hud-stat" id="hudTotal">
-          <span class="hs-value" id="hudTotalVal">—</span>
-          <span class="hs-label">TOTAL XP</span>
-          <span class="hs-sub" id="hudTotalSub">&nbsp;</span>
+        <div class="hud-stat" id="hudLeverage">
+          <span class="hs-value" id="hudLevVal">—</span>
+          <span class="hs-label">LEVERAGE</span>
+          <div class="hud-lev-grid" id="hudLevGrid"></div>
         </div>
         <div class="streak-hud" id="streakTracker">
           <span class="hs-label">STREAK</span>
@@ -953,7 +996,8 @@ const HUD_DEFAULTS = {
   week_id: '—', xp_this_week: 0, xp_total: 0, baseline: 0,
   min_threshold: 0, ahead_threshold: 0, pace: 'no_baseline',
   ship_days: 0, ship_target: 3, ship_dates: [], streak_ship_dates: [],
-  quests: [], open_count: 0, committed_count: 0
+  quests: [], open_count: 0, committed_count: 0,
+  leverage: { decide: 0, absorb: 0, align: 0, clear: 0 }
 };
 const hudState = Object.assign({}, HUD_DEFAULTS, JSON.parse(localStorage.getItem('pql_hud') || '{}'));
 
@@ -998,6 +1042,14 @@ function updateBanner(data) {
   }
   if (data.committed && Array.isArray(data.committed)) {
     hudState.committed_count = data.committed.length; changed = true;
+  }
+
+  // Leverage counts
+  if (data.leverage_this_week) {
+    hudState.leverage = data.leverage_this_week; changed = true;
+  }
+  if (data.pace && data.pace.leverage_this_week) {
+    hudState.leverage = data.pace.leverage_this_week; changed = true;
   }
 
   if (changed) {
@@ -1056,9 +1108,20 @@ function renderBanner() {
     ? hudState.committed_count + ' COMMITTED'
     : '';
 
-  // Total XP
-  document.getElementById('hudTotalVal').textContent = hudState.xp_total || '—';
-  document.getElementById('hudTotalSub').textContent = hudState.xp_total > 0 ? 'ALL TIME' : '';
+  // Leverage
+  const lev = hudState.leverage || { decide:0, absorb:0, align:0, clear:0 };
+  const levTotal = (lev.decide||0)+(lev.absorb||0)+(lev.align||0)+(lev.clear||0);
+  document.getElementById('hudLevVal').textContent = levTotal || '—';
+  const levGrid = document.getElementById('hudLevGrid');
+  const levItems = [
+    { key:'decide', label:'D', val:lev.decide||0 },
+    { key:'absorb', label:'A', val:lev.absorb||0 },
+    { key:'align',  label:'L', val:lev.align||0 },
+    { key:'clear',  label:'C', val:lev.clear||0 }
+  ];
+  levGrid.innerHTML = levItems.map(l =>
+    `<div class="hud-lev-pip lev-${l.key}" title="${l.key.toUpperCase()}: ${l.val}">${l.label}:${l.val}</div>`
+  ).join('');
 }
 
 // ═══════════════════════════════════════════════════════
@@ -1438,7 +1501,13 @@ function renderResponse(cmd, data, isError, isAI) {
             <span class="art-id">${escHtml(a.artifact_id)}</span>
             <span class="art-title" title="${escHtml(a.title)}">${escHtml(a.title)}</span>
             <span class="art-xp">${a.xp} XP</span><span class="art-type">${a.type}</span>
-          </div><div class="pb-radio-group"><span style="font-size:12px;color:var(--text-dim);padding:2px 6px" class="ship-label">SHIP?</span></div></div>`;
+          </div><div class="pb-radio-group"><span style="font-size:12px;color:var(--text-dim);padding:2px 6px" class="ship-label">SHIP?</span></div></div>
+        <div class="leverage-selector" id="slev-${a.artifact_id}" style="display:none;padding-left:12px;margin-bottom:4px">
+          <button class="leverage-btn" data-lev="decide" onclick="event.stopPropagation();setStartLeverage('${a.artifact_id}','decide',this)">DECIDE</button>
+          <button class="leverage-btn" data-lev="absorb" onclick="event.stopPropagation();setStartLeverage('${a.artifact_id}','absorb',this)">ABSORB</button>
+          <button class="leverage-btn" data-lev="align" onclick="event.stopPropagation();setStartLeverage('${a.artifact_id}','align',this)">ALIGN</button>
+          <button class="leverage-btn" data-lev="clear" onclick="event.stopPropagation();setStartLeverage('${a.artifact_id}','clear',this)">CLEAR</button>
+        </div>`;
       });
     });
     html += `</div>`;
@@ -1833,6 +1902,20 @@ function renderResponse(cmd, data, isError, isAI) {
   if (cmd === 'status') {
     html += `<div style="color:var(--phosphor-bright);text-shadow:var(--glow);font-size:16px;margin-bottom:2px">${data.title || 'WEEKLY PORTFOLIO PULSE'}</div>`;
     html += `<div style="font-size:13px;color:var(--text-dim);margin-bottom:8px">${data.date} | ${data.week_id}</div>`;
+    // CEO Leverage This Week
+    if (data.leverage_this_week) {
+      const lw = data.leverage_this_week;
+      const lwTotal = (lw.decide||0)+(lw.absorb||0)+(lw.align||0)+(lw.clear||0);
+      if (lwTotal > 0) {
+        html += `<div class="ceo-brief"><div class="brief-title">CEO LEVERAGE THIS WEEK — ${lwTotal} ACTION${lwTotal>1?'S':''}</div>`;
+        html += `<div class="leverage-summary">`;
+        if (lw.decide) html += `<span class="leverage-tag lev-decide">${lw.decide} DECIDE</span>`;
+        if (lw.absorb) html += `<span class="leverage-tag lev-absorb">${lw.absorb} ABSORB</span>`;
+        if (lw.align) html += `<span class="leverage-tag lev-align">${lw.align} ALIGN</span>`;
+        if (lw.clear) html += `<span class="leverage-tag lev-clear">${lw.clear} CLEAR</span>`;
+        html += `</div></div>`;
+      }
+    }
     if (data.pace) html += paceSection(data.pace, false);
     if (data.xp_earned_last_week > 0) html += xpBar(data.xp_earned_last_week, 'LAST WEEK');
     html += `<div class="section"><div class="section-title">ACTIVE EPICS</div>`;
@@ -1868,17 +1951,24 @@ function renderResponse(cmd, data, isError, isAI) {
     const epicGroups = Object.values(byEpic);
 
     html += `<div class="section"><div class="section-title">SHIP ARTIFACTS <span class="badge badge-accent">${data.active_count} active</span></div>
-      <div style="font-size:12px;color:var(--text-dim);margin-bottom:8px">Click artifacts you shipped today, then press SHIP.</div>`;
+      <div style="font-size:12px;color:var(--text-dim);margin-bottom:4px">Click artifacts you shipped today, then tag how each one created leverage.</div>
+      <div style="font-size:11px;color:var(--cyan);margin-bottom:8px;letter-spacing:1px"><b>DECIDE</b>=enabled a decision &nbsp; <b>ABSORB</b>=handled without escalation &nbsp; <b>ALIGN</b>=created alignment &nbsp; <b>CLEAR</b>=freed capacity</div>`;
 
     epicGroups.forEach(eg => {
       html += `<div style="color:var(--text-dim);font-size:12px;letter-spacing:2px;text-transform:uppercase;margin:10px 0 4px;padding:2px 4px;border-bottom:1px solid var(--border)">${escHtml(eg.epic_id)} — ${escHtml(eg.epic_title)}</div>`;
       eg.artifacts.forEach(a => {
-        html += `<div class="art-row" style="cursor:pointer" onclick="toggleShip(this,'${a.artifact_id}')">
+        html += `<div class="art-row" style="cursor:pointer;flex-wrap:wrap" onclick="toggleShip(this,'${a.artifact_id}')">
           <span class="art-status status-${a.status}">${a.status}</span>
           <span class="art-id">${escHtml(a.artifact_id)}</span>
           <span class="art-title">${escHtml(a.title)}</span>
           <span class="art-xp">${a.xp} XP</span>
           <span class="art-type">${a.type}</span>
+        </div>
+        <div class="leverage-selector" id="lev-${a.artifact_id}" style="display:none;padding-left:12px">
+          <button class="leverage-btn" data-lev="decide" data-aid="${a.artifact_id}" onclick="event.stopPropagation();setLeverage('${a.artifact_id}','decide',this)">DECIDE</button>
+          <button class="leverage-btn" data-lev="absorb" data-aid="${a.artifact_id}" onclick="event.stopPropagation();setLeverage('${a.artifact_id}','absorb',this)">ABSORB</button>
+          <button class="leverage-btn" data-lev="align" data-aid="${a.artifact_id}" onclick="event.stopPropagation();setLeverage('${a.artifact_id}','align',this)">ALIGN</button>
+          <button class="leverage-btn" data-lev="clear" data-aid="${a.artifact_id}" onclick="event.stopPropagation();setLeverage('${a.artifact_id}','clear',this)">CLEAR</button>
         </div>`;
       });
     });
@@ -1896,10 +1986,37 @@ function renderResponse(cmd, data, isError, isAI) {
       });
       html += '</div>';
     }
+    // CEO Leverage Brief
+    if (data.leverage_summary) {
+      const ls = data.leverage_summary;
+      const levTotal = (ls.decide||0)+(ls.absorb||0)+(ls.align||0)+(ls.clear||0);
+      if (levTotal > 0) {
+        html += `<div class="ceo-brief"><div class="brief-title">CEO LEVERAGE — TODAY</div>`;
+        html += `<div class="leverage-summary">`;
+        if (ls.decide) html += `<span class="leverage-tag lev-decide">${ls.decide} DECISION${ls.decide>1?'S':''} ENABLED</span>`;
+        if (ls.absorb) html += `<span class="leverage-tag lev-absorb">${ls.absorb} PROBLEM${ls.absorb>1?'S':''} ABSORBED</span>`;
+        if (ls.align) html += `<span class="leverage-tag lev-align">${ls.align} ALIGNMENT${ls.align>1?'S':''} CREATED</span>`;
+        if (ls.clear) html += `<span class="leverage-tag lev-clear">${ls.clear} CAPACITY CLEARED</span>`;
+        html += `</div>`;
+        // CEO narrative lines
+        if (data.leverage_details?.length > 0) {
+          data.leverage_details.forEach(ld => {
+            const levClass = 'lev-'+(ld.leverage_type||'none');
+            const levLabel = {decide:'DECIDE',absorb:'ABSORB',align:'ALIGN',clear:'CLEAR'}[ld.leverage_type]||'—';
+            html += `<div class="brief-line"><span class="leverage-tag ${levClass}" style="margin-right:6px">${levLabel}</span>${escHtml(ld.title||ld.artifact_id)}</div>`;
+          });
+        }
+        html += `</div>`;
+      }
+    }
     if (data.pace) html += paceSection(data.pace, true);
     if (data.ships?.length > 0) {
       html += `<div class="section"><div class="section-title">SHIPPED</div>`;
-      data.ships.filter(s=>s.action==='shipped').forEach(s => { html += `<div class="art-row"><span class="art-id">${escHtml(s.artifact_id)}</span><span class="art-title">${escHtml(s.title||'')}</span><span class="art-xp">+${s.xp} XP</span><span class="art-type">${s.type||''}</span></div>`; });
+      data.ships.filter(s=>s.action==='shipped').forEach(s => {
+        const levType = s.leverage_type;
+        const levTag = levType ? `<span class="leverage-tag lev-${levType}" style="margin-left:6px">${levType.toUpperCase()}</span>` : '';
+        html += `<div class="art-row"><span class="art-id">${escHtml(s.artifact_id)}</span><span class="art-title">${escHtml(s.title||'')}</span><span class="art-xp">+${s.xp} XP</span>${levTag}<span class="art-type">${s.type||''}</span></div>`;
+      });
       html += '</div>';
     }
     if (data.remaining_count > 0) {
@@ -2590,14 +2707,34 @@ function paceSection(pace, compact) {
 // INTERACTIVE ACTIONS
 // ═══════════════════════════════════════════════════════
 const selectedShips = new Set();
+const shipLeverage = {};  // { artifact_id: 'decide'|'absorb'|'align'|'clear' }
 function toggleShip(el, artId) {
-  if (selectedShips.has(artId)) { selectedShips.delete(artId); el.style.background=''; el.style.borderLeft=''; }
-  else { selectedShips.add(artId); el.style.background='var(--phosphor-glow)'; el.style.borderLeft='2px solid var(--phosphor)'; }
+  if (selectedShips.has(artId)) {
+    selectedShips.delete(artId); el.style.background=''; el.style.borderLeft='';
+    delete shipLeverage[artId];
+    const levEl = document.getElementById('lev-'+artId);
+    if (levEl) { levEl.style.display='none'; levEl.querySelectorAll('.leverage-btn').forEach(b=>b.classList.remove('selected')); }
+  } else {
+    selectedShips.add(artId); el.style.background='var(--phosphor-glow)'; el.style.borderLeft='2px solid var(--phosphor)';
+    const levEl = document.getElementById('lev-'+artId);
+    if (levEl) levEl.style.display='flex';
+  }
+}
+function setLeverage(artId, levType, btn) {
+  const container = document.getElementById('lev-'+artId);
+  if (!container) return;
+  const wasSelected = btn.classList.contains('selected');
+  container.querySelectorAll('.leverage-btn').forEach(b => b.classList.remove('selected'));
+  if (wasSelected) { delete shipLeverage[artId]; }
+  else { btn.classList.add('selected'); shipLeverage[artId] = levType; }
 }
 function submitShips() {
   if (selectedShips.size===0) { addMessage('error','wrapup','SELECT AT LEAST ONE ARTIFACT'); return; }
-  sendPayload({cmd:'wrapup',shipped:Array.from(selectedShips)});
+  const payload = {cmd:'wrapup', shipped:Array.from(selectedShips)};
+  if (Object.keys(shipLeverage).length > 0) payload.leverage_types = Object.assign({}, shipLeverage);
+  sendPayload(payload);
   selectedShips.clear();
+  Object.keys(shipLeverage).forEach(k => delete shipLeverage[k]);
 }
 function submitBackfill() {
   const entries = [];
@@ -2762,23 +2899,25 @@ function submitPlanForm() {
 // ── /start plan builder helpers ──
 function toggleStartShip(el, artId) {
   if (!window._planShipped) window._planShipped = new Set();
+  if (!window._planLeverage) window._planLeverage = {};
   const assignCard = document.getElementById('pb-' + artId);
+  const levEl = document.getElementById('slev-' + artId);
   if (window._planShipped.has(artId)) {
     window._planShipped.delete(artId);
+    delete window._planLeverage[artId];
     el.style.background = ''; el.style.borderColor = '';
     el.querySelector('.ship-label').textContent = 'SHIP?';
     el.querySelector('.ship-label').style.color = 'var(--text-dim)';
     if (assignCard) { assignCard.style.display = ''; assignCard.style.opacity = ''; }
-    // Remove from assignments if it was there
+    if (levEl) { levEl.style.display = 'none'; levEl.querySelectorAll('.leverage-btn').forEach(b=>b.classList.remove('selected')); }
   } else {
     window._planShipped.add(artId);
     el.style.background = 'var(--phosphor-glow)'; el.style.borderColor = 'var(--phosphor-bright)';
     el.querySelector('.ship-label').textContent = '✓ SHIPPED';
     el.querySelector('.ship-label').style.color = 'var(--phosphor-bright)';
-    // Dim the assign card since shipped items don't need C/S/P
     if (assignCard) { assignCard.style.opacity = '0.25'; assignCard.style.pointerEvents = 'none'; }
-    // Remove from C/S/P assignments
     delete (window._planAssignments || {})[artId];
+    if (levEl) levEl.style.display = 'flex';
   }
   // Update counters
   const shipE = document.getElementById('pbCountShip'); if (shipE) shipE.textContent = window._planShipped.size;
@@ -2789,11 +2928,20 @@ function toggleStartShip(el, artId) {
   const pE = document.getElementById('pbCountP'); if (pE) pE.textContent = counts.parked;
 }
 
+function setStartLeverage(artId, levType, btn) {
+  if (!window._planLeverage) window._planLeverage = {};
+  const container = document.getElementById('slev-'+artId);
+  if (!container) return;
+  const wasSelected = btn.classList.contains('selected');
+  container.querySelectorAll('.leverage-btn').forEach(b => b.classList.remove('selected'));
+  if (wasSelected) { delete window._planLeverage[artId]; }
+  else { btn.classList.add('selected'); window._planLeverage[artId] = levType; }
+}
 function submitStartPlan() {
   const shipped = Array.from(window._planShipped || new Set());
   const committed = [], stretch = [], parked = [];
   for (const [aid, role] of Object.entries(window._planAssignments || {})) {
-    if (shipped.includes(aid)) continue; // Skip shipped items
+    if (shipped.includes(aid)) continue;
     if (role === 'committed') committed.push(aid);
     else if (role === 'stretch') stretch.push(aid);
     else if (role === 'parked') parked.push(aid);
@@ -2806,9 +2954,12 @@ function submitStartPlan() {
   }
   if (committed.length === 0 && shipped.length === 0) { addMessage('error', 'start', 'COMMIT AT LEAST 1 ARTIFACT OR SHIP SOMETHING'); return; }
   if (quests.length === 0 && committed.length > 0) { addMessage('error', 'start', 'SELECT AT LEAST 1 QUEST'); return; }
-  sendPayload({cmd: 'start', phase: 'plan', shipped, committed, stretch, parked, quests, dependencies: []});
+  const payload = {cmd: 'start', phase: 'plan', shipped, committed, stretch, parked, quests, dependencies: []};
+  if (window._planLeverage && Object.keys(window._planLeverage).length > 0) payload.leverage_types = Object.assign({}, window._planLeverage);
+  sendPayload(payload);
   window._planShipped = new Set();
   window._planAssignments = {};
+  window._planLeverage = {};
 }
 
 // ═══════════════════════════════════════════════════════

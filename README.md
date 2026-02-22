@@ -174,6 +174,20 @@ Lagging / On Track / Ahead is determined by your thresholds plus the ship-day ru
 ### Ship-day rule
 Your week is considered healthy only if ship days are frequent enough (e.g., 3+ days/week). This stops "one Friday dump" from hiding slow drift.
 
+### CEO Leverage (executive impact metric)
+Every shipped artifact can be tagged with a **leverage type** that captures how it multiplied the CEO's effectiveness. This shifts the narrative from "I completed tasks" to "I made the CEO's job easier."
+
+| Leverage Type | Code | Meaning |
+|---------------|------|---------|
+| **Decision Enabled** | DECIDE | Prepared a brief, analysis, or recommendation so the CEO decides faster |
+| **Problem Absorbed** | ABSORB | Handled something that would have escalated to the CEO |
+| **Alignment Created** | ALIGN | Got teams or stakeholders aligned without CEO intervention |
+| **Capacity Created** | CLEAR | Freed CEO time by automating, delegating, or streamlining |
+
+The HUD displays a **LEVERAGE** counter showing this week's breakdown (D/A/L/C). The weekly status and wrapup views include a **CEO LEVERAGE** brief that summarizes your organizational impact — what the CEO would hear if asked "What is this person doing for me?"
+
+Leverage is tracked per-artifact in the XP ledger alongside XP, and aggregated weekly.
+
 ---
 
 ## 6. Weekly Workflow (the game loop)
