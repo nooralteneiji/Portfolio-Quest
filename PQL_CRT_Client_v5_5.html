@@ -2101,8 +2101,19 @@ function renderResponse(cmd, data, isError, isAI) {
     window._manageEpics = data.epics || [];
     window._manageEpicOrder = (data.epics||[]).map(e => e.epic_id);
     window._manageArtOrders = {};
-    (data.epics||[]).forEach(e => { window._manageArtOrders[e.epic_id] = (e.artifacts||[]).map(a => a.artifact_id); });
     window._manageDirty = false;
+
+    // Sort artifacts within each epic: non-shipped first (original order), then shipped sorted by shipped_date (earliest → most recent)
+    (data.epics||[]).forEach(e => {
+      if (!e.artifacts) return;
+      const nonShipped = e.artifacts.filter(a => a.status !== 'shipped');
+      const shipped = e.artifacts.filter(a => a.status === 'shipped')
+        .sort((a, b) => (a.shipped_date || '').localeCompare(b.shipped_date || ''));
+      e.artifacts = nonShipped.concat(shipped);
+    });
+
+    // Rebuild art orders after sorting
+    (data.epics||[]).forEach(e => { window._manageArtOrders[e.epic_id] = (e.artifacts||[]).map(a => a.artifact_id); });
 
     html += `<div class="section" style="border-color:var(--cyan)"><div class="section-title" style="color:var(--cyan)">MANAGE EPICS & ARTIFACTS</div>
       <div style="font-size:13px;color:var(--text-dim);margin-bottom:8px">Drag ⠿ to reorder · click title to rename · DEL to delete · Save when done</div>`;
