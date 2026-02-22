@@ -3021,6 +3021,7 @@ function confirmClusterWithSuggestions(ci) {
 
 
 function confirmDeleteOps(id, text) {
+  if (!id || id === 'undefined') { addMessage('error','ops','Cannot delete: item has no ID. Refresh ops view and retry.'); return; }
   const overlay = document.createElement('div');
   overlay.className = 'confirm-delete-overlay';
   overlay.innerHTML = `
@@ -3037,11 +3038,13 @@ function confirmDeleteOps(id, text) {
 }
 
 function execDeleteOps(id) {
+  if (!id || id === 'undefined') { addMessage('error','ops','Cannot delete: missing item ID.'); return; }
   document.querySelector('.confirm-delete-overlay')?.remove();
   sendPayload({ cmd: 'ops', action: 'delete', sub_action: 'delete', id });
 }
 
 function confirmDeleteMastery(id, text) {
+  if (!id || id === 'undefined') { addMessage('error','ops','Cannot delete: item has no ID. Refresh ops view and retry.'); return; }
   const overlay = document.createElement('div');
   overlay.className = 'confirm-delete-overlay';
   overlay.innerHTML = `
@@ -3058,6 +3061,7 @@ function confirmDeleteMastery(id, text) {
 }
 
 function execDeleteMastery(id) {
+  if (!id || id === 'undefined') { addMessage('error','ops','Cannot delete: missing item ID.'); return; }
   document.querySelector('.confirm-delete-overlay')?.remove();
   sendPayload({ cmd: 'ops', action: 'delete_mastery', sub_action: 'delete_mastery', id });
 }
