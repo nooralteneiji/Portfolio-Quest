@@ -1,6 +1,6 @@
 # Portfolio Quest League (PQL)
 
-A paper-based operating system for your Behavioral Science role. The system is built to:
+A paper-based operating system for your job. The system is built to:
 
 - Track only portfolio-grade work (no admin noise in your main score)
 - Prevent "stretching tasks longer than they should"
