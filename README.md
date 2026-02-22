@@ -1,12 +1,36 @@
 # Portfolio Quest League (PQL)
 
-A paper-based operating system for your Behavioral Science role. The system is built to:
+A paper-based operating system (with a retro CRT digital client) for your Behavioral Science role — gamified as a weekly quest system that ships artifacts, not checkboxes.
 
-- Track only portfolio-grade work (no admin noise in your main score)
-- Prevent "stretching tasks longer than they should"
-- Create steady pace through weekly finish lines
-- Keep you unblocked via an Ops lane
-- Maintain continuity through capture → processing → review
+---
+
+## Features That Kill the To-Do List
+
+PQL is built on the premise that to-do lists are where ambition goes to die. Every core mechanic exists to replace list-management with a forcing function that produces actual output.
+
+### 3 Moves Only — Hard Cap on Weekly Scope
+You choose exactly 3 work packages ("Moves") per week for portfolio work. Not 5, not 8, not "as many as I can." Three. If something new appears mid-week, it must **replace** a Move (the Swap Rule) — never extend the list. Everything else goes to the Parking Lot. This eliminates the infinite-scroll to-do list by design.
+
+### Friday Finish Line Artifacts — Deadlines That Ship Things
+Every Quest is defined by a single tangible artifact that must exist by Friday. Not "make progress on X." Not "continue working on Y." A document, deck, table, or memo that can be reviewed. Drafts count. This converts vague recurring tasks into weekly deliverables with a hard stop.
+
+### The Slice Rule — Anti-Stall Circuit Breaker
+If you've spent multiple sessions thinking or reading without producing anything, you must immediately create a Slice: the smallest visible version of the work (a one-page framework, a synthesis table, an outline, a decision note). Slices earn XP and break the "I'm still researching" loop that lets items sit on a to-do list for weeks.
+
+### Parking Lot — Explicit "Not Now" With No Guilt
+Ideas and future tasks get deliberately parked — moved to a named list that means "I see you, but not this week." This replaces the anxious re-reading of items you can't act on yet. Parked items don't clutter your active view, and epics can auto-unpark when their dependencies resolve.
+
+### Ops Token Isolation — Admin Can't Hijack Your Week
+Admin work (email, scheduling, follow-ups) lives in its own lane and earns zero portfolio XP. It's scheduled in 15-minute tokens — not left floating as a growing list of "also need to do" items that silently devour your real work.
+
+### Waiting For + Ping Dates — No More "Is This Done Yet?" Checking
+Dependencies are captured once with an explicit next-follow-up date. You don't check. You don't wonder. You don't add "follow up on X" to tomorrow's list. When the ping date arrives, you act. Until then, it doesn't exist in your daily view.
+
+### AI Brain Dump Classifier — Batch Capture, Zero Manual Sorting
+The `/sync` command lets you dump raw thoughts as free text. The system auto-classifies each item into Portfolio, Ops, or Mastery lanes, detects new epic clusters, and suggests artifacts. No triaging. No dragging items between categories. No "where does this go?" overhead.
+
+### Artifact Dependency Tracking — Blocked Work Manages Itself
+Artifacts can declare what they're waiting on. Parked epics with unresolved dependencies stay out of your way and automatically resurface when their blockers clear — no manual "check if X is done so I can start Y" items polluting your list.
 
 ---
 
