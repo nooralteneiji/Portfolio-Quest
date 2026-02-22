@@ -2121,6 +2121,7 @@ function renderResponse(cmd, data, isError, isAI) {
           </div>
           <div class="mr-actions">
             <span style="font-size:11px;color:var(--text-dim)">${(e.artifacts||[]).length} arts</span>
+            ${e.status === 'completed' ? '' : (e.status === 'parked' ? `<button class="rename-btn" style="color:var(--phosphor);margin-left:6px" onclick="execUnparkEpic('${e.epic_id}')" title="Unpark epic">UNPARK</button>` : `<button class="rename-btn" style="color:var(--amber);margin-left:6px" onclick="execParkEpic('${e.epic_id}','${safeTitle}')" title="Park epic">PARK</button>`)}
             <button class="delete-btn" onclick="confirmDeleteEpic('${e.epic_id}','${safeTitle}',${(e.artifacts||[]).length})" style="margin-left:6px" title="Delete epic">DEL</button>
           </div>
         </div>`;
@@ -2195,6 +2196,36 @@ function renderResponse(cmd, data, isError, isAI) {
   if (cmd === 'edit' && data.mode === 'unparked_artifact') {
     html += `<div class="section" style="border-color:var(--phosphor)"><div class="section-title" style="color:var(--phosphor)">ARTIFACT UNPARKED</div>
       <div class="art-row"><span class="art-id">${escHtml(data.artifact_id||'')}</span><span class="art-title">${escHtml(data.title||'')}</span><span style="font-size:12px;color:var(--text-dim)">now open</span></div></div>`;
+    addRichMessage('recv', cmd, html);
+    setTimeout(() => sendPayload({ cmd: 'edit' }), 400);
+    return;
+  }
+
+  if (cmd === 'edit' && data.mode === 'parked_epic') {
+    html += `<div class="section" style="border-color:var(--amber)"><div class="section-title" style="color:var(--amber)">EPIC PARKED</div>
+      <div class="art-row"><span class="art-id" style="color:var(--phosphor-bright)">${escHtml(data.epic_id||'')}</span><span class="art-title" style="color:var(--phosphor-bright)">${escHtml(data.title||'')}</span><span style="font-size:12px;color:var(--text-dim)">was ${escHtml(data.old_status||'active')}</span></div>`;
+    if ((data.parked_artifacts||[]).length > 0) {
+      html += `<div style="padding:4px 0;font-size:12px;color:var(--amber)">${data.parked_artifacts.length} artifact(s) parked:</div>`;
+      (data.parked_artifacts||[]).forEach(a => {
+        html += `<div class="art-row"><span class="art-status status-parked">parked</span><span class="art-id">${escHtml(a.artifact_id)}</span><span class="art-title">${escHtml(a.title)}</span></div>`;
+      });
+    }
+    html += `</div>`;
+    addRichMessage('recv', cmd, html);
+    setTimeout(() => sendPayload({ cmd: 'edit' }), 400);
+    return;
+  }
+
+  if (cmd === 'edit' && data.mode === 'unparked_epic') {
+    html += `<div class="section" style="border-color:var(--phosphor)"><div class="section-title" style="color:var(--phosphor)">EPIC UNPARKED</div>
+      <div class="art-row"><span class="art-id" style="color:var(--phosphor-bright)">${escHtml(data.epic_id||'')}</span><span class="art-title" style="color:var(--phosphor-bright)">${escHtml(data.title||'')}</span><span style="font-size:12px;color:var(--text-dim)">now active</span></div>`;
+    if ((data.unparked_artifacts||[]).length > 0) {
+      html += `<div style="padding:4px 0;font-size:12px;color:var(--phosphor)">${data.unparked_artifacts.length} artifact(s) reactivated:</div>`;
+      (data.unparked_artifacts||[]).forEach(a => {
+        html += `<div class="art-row"><span class="art-status status-open">open</span><span class="art-id">${escHtml(a.artifact_id)}</span><span class="art-title">${escHtml(a.title)}</span></div>`;
+      });
+    }
+    html += `</div>`;
     addRichMessage('recv', cmd, html);
     setTimeout(() => sendPayload({ cmd: 'edit' }), 400);
     return;
@@ -2374,7 +2405,7 @@ function renderResponse(cmd, data, isError, isAI) {
     if (data.mode === 'detail' && data.folder) {
       const f = data.folder;
       html += `<div style="color:var(--phosphor-bright);text-shadow:var(--glow);font-size:16px;margin-bottom:2px">\u{1F4C2} ${escHtml(f.title)}</div>`;
-      html += `<div style="font-size:13px;color:var(--text-dim);margin-bottom:8px">${escHtml(f.epic_id)} \u00b7 ${f.shipped}/${f.total} artifacts \u00b7 ${f.earned_xp}/${f.total_xp} XP</div>`;
+      html += `<div style="font-size:13px;color:var(--text-dim);margin-bottom:8px">${escHtml(f.epic_id)} \u00b7 ${f.shipped}/${f.total} artifacts \u00b7 ${f.earned_xp}/${f.total_xp} XP${f.status === 'parked' ? ' <span style="color:var(--amber)">· PARKED</span>' : ''}</div>`;
       html += xpBar(f.earned_xp, f.progress_pct + '%', f.total_xp);
       (f.milestones || []).forEach(m => {
         html += `<div class="lib-milestone"><div class="lib-milestone-title">${escHtml(m.title)} (${m.shipped}/${m.total})</div>`;
@@ -2392,6 +2423,7 @@ function renderResponse(cmd, data, isError, isAI) {
     html += `<div style="color:var(--phosphor-bright);text-shadow:var(--glow);font-size:16px;margin-bottom:2px">\u{1F4C2} EPIC LIBRARY</div>`;
     html += `<div class="lib-summary">`;
     html += `<div class="lib-sum-card"><div class="lib-sum-val">${data.active_epics || 0}</div><div class="lib-sum-label">ACTIVE</div></div>`;
+    if (data.parked_epics > 0) html += `<div class="lib-sum-card"><div class="lib-sum-val" style="color:var(--amber)">${data.parked_epics}</div><div class="lib-sum-label">PARKED</div></div>`;
     html += `<div class="lib-sum-card"><div class="lib-sum-val">${data.total_epics || 0}</div><div class="lib-sum-label">TOTAL</div></div>`;
     html += `<div class="lib-sum-card"><div class="lib-sum-val" style="color:var(--amber)">${data.total_earned_xp || 0}</div><div class="lib-sum-label">XP EARNED</div></div>`;
     html += `<div class="lib-sum-card"><div class="lib-sum-val" style="color:var(--text-dim)">${data.total_possible_xp || 0}</div><div class="lib-sum-label">XP POSSIBLE</div></div>`;
@@ -2402,8 +2434,9 @@ function renderResponse(cmd, data, isError, isAI) {
     folders.forEach((f, fi) => {
       const filled = f.total > 0 ? Math.round((f.shipped / f.total) * 100) : 0;
       const activeClass = fi === 0 ? ' active' : '';
+      const parkedStyle = f.status === 'parked' ? ' style="opacity:0.5;border-color:var(--amber);color:var(--amber)"' : '';
       const statusDot = f.status !== 'active' ? ` \u00b7 ${f.status.toUpperCase()}` : '';
-      html += `<div class="lib-tab${activeClass}" onclick="switchLibFolder(${fi})" title="${escHtml(f.title)} (${filled}%)">${escHtml(f.title)}${statusDot}</div>`;
+      html += `<div class="lib-tab${activeClass}"${parkedStyle} onclick="switchLibFolder(${fi})" title="${escHtml(f.title)} (${filled}%)">${escHtml(f.title)}${statusDot}</div>`;
     });
     html += `</div>`;
     // Folder bodies — one per epic, only first visible
@@ -2412,8 +2445,9 @@ function renderResponse(cmd, data, isError, isAI) {
       const filled = f.total > 0 ? Math.round((f.shipped / f.total) * 100) : 0;
       const fillClass = filled >= 100 ? ' complete' : '';
       const vis = fi === 0 ? 'block' : 'none';
-      html += `<div class="lib-folder-body" style="display:${vis}">`;
-      html += `<div style="font-size:12px;color:var(--text-dim);margin-bottom:6px;letter-spacing:0.5px">${escHtml(f.epic_id)}</div>`;
+      const parkedBorder = f.status === 'parked' ? ';border-color:var(--amber);opacity:0.7' : '';
+      html += `<div class="lib-folder-body" style="display:${vis}${parkedBorder}">`;
+      html += `<div style="font-size:12px;color:var(--text-dim);margin-bottom:6px;letter-spacing:0.5px">${escHtml(f.epic_id)}${f.status === 'parked' ? ' <span style="color:var(--amber);font-size:11px;letter-spacing:1px">PARKED</span>' : ''}</div>`;
       html += `<div class="lib-stats">`;
       html += `<span class="lib-pct">${filled}%</span>`;
       html += `<div class="lib-bar-track"><div class="lib-bar-fill${fillClass}" style="width:${filled}%"></div></div>`;
@@ -3046,6 +3080,26 @@ function submitParkArtifact(artifactId) {
 
 function execUnparkArtifact(artifactId) {
   sendPayload({ cmd: 'edit', action: 'unpark_artifact', sub_action: 'unpark_artifact', artifact_id: artifactId });
+}
+
+function execParkEpic(epicId, epicTitle) {
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = `
+    <div class="modal">
+      <h3>[ PARK EPIC ]</h3>
+      <p style="color:var(--text-dim);font-size:13px">${escHtml(epicId)} — ${escHtml(epicTitle || '')}</p>
+      <p style="color:var(--amber);font-size:12px;margin-top:8px">All non-shipped artifacts in this epic will be parked.</p>
+      <div class="modal-actions">
+        <button class="modal-btn" onclick="document.querySelector('.modal-overlay')?.remove(); sendPayload({ cmd: 'edit', action: 'park_epic', sub_action: 'park_epic', epic_id: '${epicId}' })">PARK</button>
+        <button class="modal-btn secondary" onclick="this.closest('.modal-overlay').remove()">ESC</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+}
+
+function execUnparkEpic(epicId) {
+  sendPayload({ cmd: 'edit', action: 'unpark_epic', sub_action: 'unpark_epic', epic_id: epicId });
 }
 
 function execResolveWaiting(waitingOn) {
