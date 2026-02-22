@@ -535,38 +535,7 @@ body{
   overflow:hidden;
 }
 .duck-transition.show{opacity:1}
-
-.walking-duck{
-  position:absolute;
-  left:-60px;
-  bottom:16px;
-  font-size:13px;line-height:1.2;
-  color:var(--phosphor);text-shadow:var(--glow);
-  font-family:'Courier New',monospace;
-  white-space:pre;
-  animation:walkAcross 3.5s linear forwards;
-}
-
-.duck-footprint{
-  position:absolute;
-  bottom:4px;
-  font-size:10px;
-  color:var(--phosphor);text-shadow:var(--glow);
-  font-family:'Courier New',monospace;
-  opacity:0.6;
-  animation:footFade 2s ease forwards;
-}
-
-@keyframes walkAcross{
-  0%{left:-60px}
-  100%{left:110%}
-}
-
-@keyframes footFade{
-  0%{opacity:0.6}
-  70%{opacity:0.4}
-  100%{opacity:0}
-}
+.duck-transition canvas{display:block;width:100%;height:100%}
 
 .ascii-banner{
   font-size:11px;line-height:1.15;
@@ -847,7 +816,7 @@ body{
       <div class="matrix-wake" id="matrixWake"><span id="wakeText"></span><span class="matrix-cursor" id="wakeCursor"></span></div>
       <div class="matrix-follow" id="matrixFollow">The Matrix has you...</div>
       <div class="duck-transition" id="duckTransition">
-        <pre class="walking-duck" id="walkingDuck"></pre>
+        <canvas id="duckCanvas"></canvas>
       </div>
       <pre class="ascii-banner" id="asciiBanner">
 ████████╗██████╗  ██████╗
@@ -3369,46 +3338,110 @@ async function loadBannerStats() {
   const cursorEl = document.getElementById('wakeCursor');
   const followEl = document.getElementById('matrixFollow');
   const duckEl = document.getElementById('duckTransition');
-  const duckSprite = document.getElementById('walkingDuck');
+  const canvas = document.getElementById('duckCanvas');
+  const ctx = canvas.getContext('2d');
   const bannerEl = document.getElementById('asciiBanner');
   const bootLines = document.querySelectorAll('#bootLines .boot-line');
   const bootScreen = document.getElementById('bootScreen');
 
-  // Walking duck frames (side profile, solid color)
+  // Pixel art side-profile walking duck (9 cols x 10 rows)
+  const PX = 4;
+  const COLOR = '#33ff00';
   const duckFrames = [
-    "  __\n>(° )>\n /| \n d  d",
-    "  __\n>(° )>\n /|\n  dd"
+    // Frame 1 — legs apart (stride)
+    [
+      [0,0,0,0,1,1,0,0,0],
+      [0,0,0,1,1,1,1,0,0],
+      [0,0,0,1,0,1,1,1,1],
+      [0,0,1,1,1,1,1,0,0],
+      [0,1,1,1,1,1,1,0,0],
+      [1,1,1,1,1,1,0,0,0],
+      [1,1,1,1,1,0,0,0,0],
+      [0,0,1,0,0,0,1,0,0],
+      [0,1,0,0,0,0,0,1,0],
+      [1,0,0,0,0,0,0,0,1],
+    ],
+    // Frame 2 — legs together (mid-step)
+    [
+      [0,0,0,0,1,1,0,0,0],
+      [0,0,0,1,1,1,1,0,0],
+      [0,0,0,1,0,1,1,1,1],
+      [0,0,1,1,1,1,1,0,0],
+      [0,1,1,1,1,1,1,0,0],
+      [1,1,1,1,1,1,0,0,0],
+      [1,1,1,1,1,0,0,0,0],
+      [0,0,0,1,1,0,0,0,0],
+      [0,0,0,1,1,0,0,0,0],
+      [0,0,1,0,0,1,0,0,0],
+    ],
   ];
-  let duckFrame = 0;
-  let duckWalkTimer = null;
-  let footprintTimer = null;
+
+  let duckAnimId = null;
 
   function startDuckWalk() {
-    // Set initial frame
-    duckSprite.textContent = duckFrames[0];
-    // Alternate walk frames
-    duckWalkTimer = setInterval(() => {
-      duckFrame = (duckFrame + 1) % duckFrames.length;
-      duckSprite.textContent = duckFrames[duckFrame];
-    }, 250);
-    // Drop footprints
-    footprintTimer = setInterval(() => {
-      const duckRect = duckSprite.getBoundingClientRect();
-      const containerRect = duckEl.getBoundingClientRect();
-      const footX = duckRect.left - containerRect.left + duckRect.width * 0.3;
-      const fp = document.createElement('span');
-      fp.className = 'duck-footprint';
-      fp.textContent = 'ᵥ ᵥ';
-      fp.style.left = footX + 'px';
-      duckEl.appendChild(fp);
-      // Clean up old footprints
-      setTimeout(() => { if (fp.parentNode) fp.parentNode.removeChild(fp); }, 2000);
-    }, 300);
+    canvas.width = duckEl.offsetWidth;
+    canvas.height = 80;
+    const duckH = duckFrames[0].length * PX;
+    const duckY = canvas.height - duckH - 4;
+    const footY = duckY + duckH + 1;
+    const speed = (canvas.width + 60) / 3500;
+    let startX = -duckFrames[0][0].length * PX;
+    let frame = 0, lastSwap = 0, lastPrint = 0, startTime = null;
+    const prints = [];
+
+    function drawSprite(data, x, y) {
+      ctx.shadowColor = COLOR;
+      ctx.shadowBlur = 8;
+      ctx.fillStyle = COLOR;
+      for (let r = 0; r < data.length; r++) {
+        for (let c = 0; c < data[r].length; c++) {
+          if (data[r][c]) ctx.fillRect(x + c * PX, y + r * PX, PX, PX);
+        }
+      }
+      ctx.shadowBlur = 0;
+    }
+
+    function tick(ts) {
+      if (!startTime) startTime = ts;
+      const dt = ts - startTime;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      const duckX = startX + speed * dt;
+
+      // Swap walk frame every 180ms
+      if (dt - lastSwap > 180) { frame = 1 - frame; lastSwap = dt; }
+
+      // Drop footprint every 220ms
+      if (dt - lastPrint > 220) {
+        prints.push({ x: duckX + 3 * PX, t: dt });
+        lastPrint = dt;
+      }
+
+      // Draw fading footprints
+      prints.forEach(fp => {
+        const age = dt - fp.t;
+        const a = Math.max(0, 0.45 - age / 4000);
+        if (a > 0) {
+          ctx.globalAlpha = a;
+          ctx.shadowColor = COLOR;
+          ctx.shadowBlur = 3;
+          ctx.fillStyle = COLOR;
+          ctx.fillRect(fp.x, footY, PX * 0.5, PX * 0.5);
+          ctx.fillRect(fp.x + PX * 1.8, footY, PX * 0.5, PX * 0.5);
+          ctx.shadowBlur = 0;
+          ctx.globalAlpha = 1;
+        }
+      });
+
+      // Draw duck
+      drawSprite(duckFrames[frame], duckX, duckY);
+      duckAnimId = requestAnimationFrame(tick);
+    }
+
+    duckAnimId = requestAnimationFrame(tick);
   }
 
   function stopDuckWalk() {
-    if (duckWalkTimer) clearInterval(duckWalkTimer);
-    if (footprintTimer) clearInterval(footprintTimer);
+    if (duckAnimId) { cancelAnimationFrame(duckAnimId); duckAnimId = null; }
   }
 
   const wakeMsg = 'Wake up, Noor...';
