@@ -2146,7 +2146,8 @@ function renderResponse(cmd, data, isError, isAI) {
               ${isShipped ? '' : (a.status === 'parked' ? `<button class="rename-btn" style="color:var(--phosphor)" onclick="execUnparkArtifact('${a.artifact_id}')" title="Unpark">UNPARK</button>` : `<button class="rename-btn" style="color:var(--amber)" onclick="execParkArtifact('${a.artifact_id}')" title="Park artifact">PARK</button>`)}
               ${isShipped ? '' : `<button class="delete-btn" onclick="confirmDeleteArtifact('${a.artifact_id}','${safeTitleA}','${e.epic_id}')">DEL</button>`}
             </div>
-          </div>`;
+          </div>
+          ${a.status === 'parked' && a.parked_waiting_on ? `<div style="padding:2px 12px 4px 32px;font-size:12px;color:var(--amber)">⏳ Waiting on: <strong>${escHtml(a.parked_waiting_on)}</strong> <button class="confirm-btn" style="padding:1px 8px;font-size:11px;margin-left:6px" onclick="execResolveWaiting('${escHtml(a.parked_waiting_on.replace(/'/g,"\\\\'"))}')">RECEIVED</button></div>` : ''}`;
       });
       html += `</div></div>`;
     });
@@ -2184,7 +2185,8 @@ function renderResponse(cmd, data, isError, isAI) {
 
   if (cmd === 'edit' && data.mode === 'parked_artifact') {
     html += `<div class="section" style="border-color:var(--amber)"><div class="section-title" style="color:var(--amber)">ARTIFACT PARKED</div>
-      <div class="art-row"><span class="art-id">${escHtml(data.artifact_id||'')}</span><span class="art-title">${escHtml(data.title||'')}</span><span style="font-size:12px;color:var(--text-dim)">was ${escHtml(data.old_status||'')}</span></div></div>`;
+      <div class="art-row"><span class="art-id">${escHtml(data.artifact_id||'')}</span><span class="art-title">${escHtml(data.title||'')}</span><span style="font-size:12px;color:var(--text-dim)">was ${escHtml(data.old_status||'')}</span></div>
+      ${data.waiting_on ? `<div style="padding:4px 0;font-size:12px;color:var(--amber)">⏳ Waiting on: <strong>${escHtml(data.waiting_on)}</strong></div>` : ''}</div>`;
     addRichMessage('recv', cmd, html);
     setTimeout(() => sendPayload({ cmd: 'edit' }), 400);
     return;
@@ -2193,6 +2195,23 @@ function renderResponse(cmd, data, isError, isAI) {
   if (cmd === 'edit' && data.mode === 'unparked_artifact') {
     html += `<div class="section" style="border-color:var(--phosphor)"><div class="section-title" style="color:var(--phosphor)">ARTIFACT UNPARKED</div>
       <div class="art-row"><span class="art-id">${escHtml(data.artifact_id||'')}</span><span class="art-title">${escHtml(data.title||'')}</span><span style="font-size:12px;color:var(--text-dim)">now open</span></div></div>`;
+    addRichMessage('recv', cmd, html);
+    setTimeout(() => sendPayload({ cmd: 'edit' }), 400);
+    return;
+  }
+
+  if (cmd === 'edit' && data.mode === 'resolve_waiting') {
+    html += `<div class="section" style="border-color:var(--phosphor)"><div class="section-title" style="color:var(--phosphor)">✅ WAITING ITEM RESOLVED</div>
+      <div style="padding:4px 0;font-size:13px;color:var(--text)">Resolved: <strong>${escHtml(data.waiting_on||'')}</strong></div>`;
+    if ((data.unparked||[]).length > 0) {
+      html += `<div style="padding:4px 0;font-size:12px;color:var(--phosphor)">Auto-unparked ${data.unparked.length} artifact(s):</div>`;
+      (data.unparked||[]).forEach(u => {
+        html += `<div class="art-row"><span class="art-status status-open">open</span><span class="art-id">${escHtml(u.artifact_id)}</span><span class="art-title">${escHtml(u.title)}</span></div>`;
+      });
+    } else {
+      html += `<div style="padding:4px 0;font-size:12px;color:var(--text-dim)">No parked artifacts were waiting on this item.</div>`;
+    }
+    html += `</div>`;
     addRichMessage('recv', cmd, html);
     setTimeout(() => sendPayload({ cmd: 'edit' }), 400);
     return;
@@ -2481,7 +2500,9 @@ function artifactListSection(title, ids, bc) {
 function enrichedArtifactSection(title, arts, bc) {
   if (!arts?.length) return '';
   let h = `<div class="section"><div class="section-title">${escHtml(title)} <span class="badge ${bc}">${arts.length}</span></div>`;
-  arts.forEach(a => { if (!a) return; h += `<div class="art-row"><span class="art-status status-${a.status||'open'}">${a.status||'?'}</span><span class="art-id">${escHtml(a.artifact_id||'')}</span><span class="art-title">${escHtml(a.title||'')}</span><span class="art-xp">${a.xp||0} XP</span><span class="art-type">${a.type||''}</span></div>`; });
+  arts.forEach(a => { if (!a) return; h += `<div class="art-row"><span class="art-status status-${a.status||'open'}">${a.status||'?'}</span><span class="art-id">${escHtml(a.artifact_id||'')}</span><span class="art-title">${escHtml(a.title||'')}</span><span class="art-xp">${a.xp||0} XP</span><span class="art-type">${a.type||''}</span></div>`;
+    if (a.parked_waiting_on) h += `<div style="padding:0 0 2px 20px;font-size:11px;color:var(--amber)">⏳ Waiting on: ${escHtml(a.parked_waiting_on)}</div>`;
+  });
   return h + '</div>';
 }
 function pingsSection(pings) {
@@ -2999,11 +3020,36 @@ function execResizeArtifact(artifactId, newType) {
 }
 
 function execParkArtifact(artifactId) {
-  sendPayload({ cmd: 'edit', action: 'park_artifact', sub_action: 'park_artifact', artifact_id: artifactId });
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = `
+    <div class="modal">
+      <h3>[ PARK ARTIFACT ]</h3>
+      <p style="color:var(--text-dim);font-size:13px">${escHtml(artifactId)}</p>
+      <label style="color:var(--text-dim);font-size:12px;display:block;margin:8px 0 4px">Waiting on (optional):</label>
+      <input type="text" id="parkWaitingOnInput" placeholder="e.g. receive data from Dept of Health" style="width:100%;padding:6px 8px;background:var(--bg);border:1px solid var(--phosphor-dim);color:var(--text);font-family:inherit;font-size:13px;border-radius:4px">
+      <p style="color:var(--text-dim);font-size:11px;margin-top:4px">If set, artifact will auto-unpark when you check off this waiting item.</p>
+      <div class="modal-actions">
+        <button class="modal-btn" onclick="submitParkArtifact('${artifactId}')">PARK</button>
+        <button class="modal-btn secondary" onclick="this.closest('.modal-overlay').remove()">ESC</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  setTimeout(() => document.getElementById('parkWaitingOnInput')?.focus(), 100);
+}
+
+function submitParkArtifact(artifactId) {
+  const waitingOn = document.getElementById('parkWaitingOnInput')?.value?.trim() || '';
+  document.querySelector('.modal-overlay')?.remove();
+  sendPayload({ cmd: 'edit', action: 'park_artifact', sub_action: 'park_artifact', artifact_id: artifactId, waiting_on: waitingOn });
 }
 
 function execUnparkArtifact(artifactId) {
   sendPayload({ cmd: 'edit', action: 'unpark_artifact', sub_action: 'unpark_artifact', artifact_id: artifactId });
+}
+
+function execResolveWaiting(waitingOn) {
+  sendPayload({ cmd: 'edit', action: 'resolve_waiting', sub_action: 'resolve_waiting', waiting_on: waitingOn });
 }
 
 function confirmClusterWithSuggestions(ci) {
