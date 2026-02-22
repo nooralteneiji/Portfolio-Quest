@@ -2412,7 +2412,7 @@ function renderResponse(cmd, data, isError, isAI) {
         (m.artifacts || []).forEach(a => {
           const icon = a.status === 'shipped' ? '\u2705' : '\u2b1c';
           const shipDate = a.shipped_date ? `<span style="font-size:11px;color:var(--text-dim);margin-left:4px">${escHtml(a.shipped_date)}</span>` : '';
-          html += `<div class="art-row"><span style="font-size:14px">${icon}</span><span class="art-id">${escHtml(a.artifact_id)}</span><span class="art-title">${escHtml(a.title)}</span><span class="art-xp">${a.xp} XP</span><span class="art-type">${escHtml(a.type)}</span><span class="art-status status-${a.status}">${a.status.toUpperCase()}</span>${shipDate}</div>`;
+          html += `<div class="art-row"><span style="font-size:14px">${icon}</span><span class="art-id">${escHtml(a.artifact_id)}</span><span class="art-title">${escHtml(a.title)}</span>${shipDate}<span class="art-xp">${a.xp} XP</span><span class="art-type">${escHtml(a.type)}</span><span class="art-status status-${a.status}">${a.status.toUpperCase()}</span></div>`;
         });
         html += `</div>`;
       });
@@ -2460,7 +2460,7 @@ function renderResponse(cmd, data, isError, isAI) {
         (m.artifacts || []).forEach(a => {
           const icon = a.status === 'shipped' ? '\u2705' : '\u2b1c';
           const shipDate = a.shipped_date ? `<span style="font-size:10px;color:var(--text-dim);margin-left:4px">${escHtml(a.shipped_date)}</span>` : '';
-          html += `<div class="art-row"><span style="font-size:13px">${icon}</span><span class="art-id" style="font-size:12px">${escHtml(a.artifact_id)}</span><span class="art-title" style="font-size:13px">${escHtml(a.title)}</span><span class="art-xp">${a.xp} XP</span><span class="art-status status-${a.status}" style="font-size:10px">${a.status.toUpperCase()}</span>${shipDate}</div>`;
+          html += `<div class="art-row"><span style="font-size:13px">${icon}</span><span class="art-id" style="font-size:12px">${escHtml(a.artifact_id)}</span><span class="art-title" style="font-size:13px">${escHtml(a.title)}</span>${shipDate}<span class="art-xp">${a.xp} XP</span><span class="art-status status-${a.status}" style="font-size:10px">${a.status.toUpperCase()}</span></div>`;
         });
         html += `</div>`;
       });
