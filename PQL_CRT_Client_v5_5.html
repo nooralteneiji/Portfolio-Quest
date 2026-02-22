@@ -953,12 +953,13 @@ let sending = false;
 // ═══════════════════════════════════════════════════════
 // HUD BANNER STATE
 // ═══════════════════════════════════════════════════════
-const hudState = {
+const HUD_DEFAULTS = {
   week_id: '—', xp_this_week: 0, xp_total: 0, baseline: 0,
   min_threshold: 0, ahead_threshold: 0, pace: 'no_baseline',
-  ship_days: 0, ship_target: 3, ship_dates: [],
+  ship_days: 0, ship_target: 3, ship_dates: [], streak_ship_dates: [],
   quests: [], open_count: 0, committed_count: 0
 };
+const hudState = Object.assign({}, HUD_DEFAULTS, JSON.parse(localStorage.getItem('pql_hud') || '{}'));
 
 function updateBanner(data) {
   if (!data || data.status === 'error') return;
@@ -975,6 +976,7 @@ function updateBanner(data) {
     hudState.ship_days = p.ship_days ?? hudState.ship_days;
     hudState.ship_target = p.ship_day_target ?? 3;
     hudState.ship_dates = p.ship_dates || hudState.ship_dates;
+    hudState.streak_ship_dates = p.streak_ship_dates || hudState.streak_ship_dates;
     changed = true;
   }
 
@@ -1003,6 +1005,7 @@ function updateBanner(data) {
   }
 
   if (changed) {
+    localStorage.setItem('pql_hud', JSON.stringify(hudState));
     renderBanner();
     updateStreakFromShipDays();
   }
@@ -1071,8 +1074,8 @@ function renderStreak() {
   if (!grid) return;
   grid.innerHTML = '';
 
-  // Build a Set of date strings where an artifact was shipped
-  const shippedSet = new Set((hudState.ship_dates || []).map(ds => ds.slice(0, 10)));
+  // Build a Set of date strings where an artifact was shipped (last 28 days)
+  const shippedSet = new Set((hudState.streak_ship_dates || []).map(ds => ds.slice(0, 10)));
 
   const today = new Date();
   const todayStr = today.toISOString().slice(0, 10);
@@ -1113,6 +1116,10 @@ function updateStreakFromShipDays() {
   renderStreak();
 }
 
+// Restore cached HUD on load (streak + banner)
+if (hudState.streak_ship_dates.length > 0) {
+  renderBanner();
+}
 renderStreak();
 
 document.getElementById('endpointDisplay').textContent = webhookUrl;
