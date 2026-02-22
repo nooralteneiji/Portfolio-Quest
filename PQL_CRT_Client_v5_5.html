@@ -3506,13 +3506,11 @@ async function loadBannerStats() {
   function startDuckWalk() {
     canvas.width = duckEl.offsetWidth;
     canvas.height = 80;
+    const duckW = duckFrames[0][0].length * PX;
     const duckH = duckFrames[0].length * PX;
     const duckY = canvas.height - duckH - 10;
-    const footY = duckY + duckH + 2;
-    const speed = (canvas.width + 80) / 3500;
-    let startX = -duckFrames[0][0].length * PX;
-    let frame = 0, lastSwap = 0, lastPrint = 0, startTime = null;
-    const prints = [];
+    const duckX = (canvas.width - duckW) / 2;
+    let frame = 0, lastSwap = 0, startTime = null;
 
     function drawSprite(data, x, y) {
       ctx.shadowColor = COLOR;
@@ -3530,38 +3528,11 @@ async function loadBannerStats() {
       if (!startTime) startTime = ts;
       const dt = ts - startTime;
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      const duckX = startX + speed * dt;
 
       // Swap walk frame every 160ms for snappy 8-bit feel
       if (dt - lastSwap > 160) { frame = 1 - frame; lastSwap = dt; }
 
-      // Drop footprint every 200ms
-      if (dt - lastPrint > 200) {
-        prints.push({ x: duckX + 4 * PX, t: dt });
-        lastPrint = dt;
-      }
-
-      // Draw fading footprints (tiny webbed feet marks)
-      const fpPx = PX * 0.6;
-      prints.forEach(fp => {
-        const age = dt - fp.t;
-        const a = Math.max(0, 0.5 - age / 4000);
-        if (a > 0) {
-          ctx.globalAlpha = a;
-          ctx.shadowColor = COLOR;
-          ctx.shadowBlur = 3;
-          ctx.fillStyle = COLOR;
-          for (let r = 0; r < FOOTPRINT.length; r++) {
-            for (let c = 0; c < FOOTPRINT[r].length; c++) {
-              if (FOOTPRINT[r][c]) ctx.fillRect(fp.x + c * fpPx, footY + r * fpPx, fpPx, fpPx);
-            }
-          }
-          ctx.shadowBlur = 0;
-          ctx.globalAlpha = 1;
-        }
-      });
-
-      // Draw duck with bob on passing frame
+      // Draw duck in place with bob on passing frame
       const bobY = frame === 1 ? duckY - BOB : duckY;
       drawSprite(duckFrames[frame], duckX, bobY);
       duckAnimId = requestAnimationFrame(tick);
