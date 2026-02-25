@@ -1265,8 +1265,20 @@ async function sendPayload(payload) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     });
+
+    // Check for HTTP errors before attempting JSON parse
+    if (!res.ok) {
+      let errBody = '';
+      try { errBody = await res.text(); } catch (_) {}
+      console.error('[PQL] HTTP ' + res.status + ':', errBody.substring(0, 500));
+      removeLoading(loadId);
+      dot.classList.add('off');
+      addMessage('error', 'error', 'SERVER ERROR ' + res.status + ': ' + (res.statusText || 'Unknown') + (errBody ? ' — ' + errBody.substring(0, 200) : ''));
+      return;
+    }
+
     let data = await res.json();
-    
+
     // DEBUG: log raw response shape (check F12 console)
     console.log('[PQL] raw response:', typeof data, Array.isArray(data) ? 'array[' + data.length + ']' : '', JSON.stringify(data).substring(0, 200));
 
@@ -1283,7 +1295,7 @@ async function sendPayload(payload) {
     if (data.json && typeof data.json === 'object' && (data.json.cmd || data.json.status)) data = data.json;
     // Some n8n versions nest under a "data" key
     if (data.data && typeof data.data === 'object' && (data.data.cmd || data.data.status)) data = data.data;
-    
+
     console.log('[PQL] unwrapped:', { cmd: data.cmd, phase: data.phase, mode: data.mode, status: data.status });
 
     lastResponse = data;
@@ -1298,7 +1310,8 @@ async function sendPayload(payload) {
   } catch (e) {
     removeLoading(loadId);
     dot.classList.add('off');
-    addMessage('error', 'error', 'CONNECTION REFUSED: ' + e.message);
+    const msg = e instanceof TypeError ? 'CONNECTION REFUSED: ' + e.message : 'REQUEST FAILED: ' + e.message;
+    addMessage('error', 'error', msg);
   } finally {
     sending = false;
     btn.disabled = false;
@@ -3585,6 +3598,7 @@ async function checkPingsOnLoad() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ cmd: 'ops', action: 'pings', sub_action: 'pings' })
     });
+    if (!res.ok) { console.warn('[PQL] pings check HTTP ' + res.status); return; }
     let data = await res.json();
     if (Array.isArray(data)) data = data[0] || {};
     if (data.json && typeof data.json === 'object' && (data.json.cmd || data.json.status)) data = data.json;
@@ -3610,6 +3624,7 @@ async function loadBannerStats() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ cmd: 'week' })
     });
+    if (!res.ok) { console.warn('[PQL] banner stats HTTP ' + res.status); return; }
     let data = await res.json();
     if (Array.isArray(data)) data = data[0] || {};
     if (data.json && typeof data.json === 'object') data = data.json;
